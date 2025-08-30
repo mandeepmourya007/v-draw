@@ -669,9 +669,22 @@ const YouTubeManager = {
      * Extract video ID from YouTube URL
      */
     extractVideoId(url) {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[2].length === 11) ? match[2] : null;
+        // Handle different YouTube URL formats including share parameters
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^#&?]*)/,
+            /youtube\.com\/v\/([^#&?]*)/,
+            /youtube\.com\/user\/[^\/]*#[^\/]*\/[^\/]*\/[^\/]*\/([^#&?]*)/,
+            /youtube\.com\/.*[?&]v=([^#&?]*)/
+        ];
+        
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1] && match[1].length === 11) {
+                return match[1];
+            }
+        }
+        
+        return null;
     }
 };
 
@@ -741,14 +754,19 @@ function setupEventListeners() {
     
     // Action buttons
     document.getElementById('clearCanvas').addEventListener('click', () => CanvasUtils.clear());
-    document.getElementById('saveDrawing').addEventListener('click', () => {
-        const activeCanvas = CanvasUtils.getActiveCanvas();
-        const link = document.createElement('a');
-        link.download = 'tutorial-' + new Date().toISOString().slice(0, 10) + '.png';
-        link.href = activeCanvas.toDataURL('image/png');
-        link.click();
-        AppState.isDrawing = false;
-    });
+    
+    // Save drawing button (commented out in HTML)
+    const saveDrawingBtn = document.getElementById('saveDrawing');
+    if (saveDrawingBtn) {
+        saveDrawingBtn.addEventListener('click', () => {
+            const activeCanvas = CanvasUtils.getActiveCanvas();
+            const link = document.createElement('a');
+            link.download = 'tutorial-' + new Date().toISOString().slice(0, 10) + '.png';
+            link.href = activeCanvas.toDataURL('image/png');
+            link.click();
+            AppState.isDrawing = false;
+        });
+    }
     document.getElementById('saveWithTimestamp').addEventListener('click', () => TimestampManager.save());
     document.getElementById('drawModeBtn').addEventListener('click', () => DrawingMode.toggle());
     document.getElementById('closeDrawingBtn').addEventListener('click', () => DrawingMode.close());
