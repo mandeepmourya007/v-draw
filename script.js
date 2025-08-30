@@ -162,16 +162,16 @@ const DrawingUtils = {
         if (!AppState.drawingMode || !AppState.overlayCanvas) return;
         
         const cursors = {
-            pencil: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>✏️</text></svg>") 2 20, crosshair',
-            line: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>📏</text></svg>") 12 12, crosshair',
-            rectangle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⬜</text></svg>") 12 12, crosshair',
-            circle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⭕</text></svg>") 12 12, crosshair',
-            arrow: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>➡️</text></svg>") 12 12, crosshair',
-            eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, crosshair',
+            pencil: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>✏️</text></svg>") 2 20, default',
+            line: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>📏</text></svg>") 12 12, default',
+            rectangle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⬜</text></svg>") 12 12, default',
+            circle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⭕</text></svg>") 12 12, default',
+            arrow: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>➡️</text></svg>") 12 12, default',
+            eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, default',
             text: 'text'
         };
         
-        AppState.overlayCanvas.style.cursor = cursors[AppState.currentTool] || 'crosshair';
+        AppState.overlayCanvas.style.cursor = cursors[AppState.currentTool] || 'default';
     },
 
     /**
@@ -223,6 +223,9 @@ const DrawingMode = {
      * Open drawing mode with overlay
      */
     open() {
+        if (AppState.player ) {
+            AppState.player.pauseVideo();
+        }
         AppState.drawingMode = true;
         
         document.getElementById('drawingOverlay').classList.remove('hidden');
