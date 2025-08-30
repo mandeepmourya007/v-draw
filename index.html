@@ -99,76 +99,69 @@
                         <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
                     </div>
                 </div>
+                
+                <!-- Video Controls Toolbar -->
+                <div class="bg-gray-50 px-4 py-3 border-t">
+                    <div class="flex items-center justify-center">
+                        <div class="text-sm text-gray-600">
+                            <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Bar -->
+                <div class="bg-white px-4 py-3 border-t flex items-center justify-center gap-3">
+                    <button id="drawModeBtn" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors">
+                        ✏️ Start Drawing
+                    </button>
+                    <button id="saveWithTimestamp" class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600 transition-colors">
+                        ⏰ Save at Time
+                    </button>
+                    <button id="clearCanvas" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors">
+                        🗑️ Clear All
+                    </button>
+                </div>
             </div>
 
             <!-- Drawing Tools Panel (1/4 width on desktop) -->
             <aside class="bg-white rounded-2xl p-6 shadow-lg h-fit">
-                <h2 class="text-xl font-semibold mb-5 text-center text-gray-800">Drawing Tools</h2>
                 
                 <!-- Drawing Tools Grid -->
                 <div class="mb-6">
                     <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Tools</h3>
-                    <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="flex gap-2 mb-4 overflow-x-auto">
                         <!-- Pencil Tool (Default Active) -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
                         
                         <!-- Line Tool -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
                         
                         <!-- Rectangle Tool -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
                         
                         <!-- Circle Tool -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
                         
                         <!-- Arrow Tool -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
                         
                         <!-- Eraser Tool -->
-                        <button class="tool-btn w-12 h-12 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
+                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
                     </div>
                 </div>
 
                 <!-- Customization Controls -->
                 <div class="mb-6">
                     <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Customize</h3>
-                    <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-3">
                         <!-- Color Picker -->
-                        <div class="flex items-center gap-3">
-                            <label class="text-sm text-gray-600 min-w-14">Color:</label>
-                            <input type="color" id="colorPicker" value="#ff0000" class="w-12 h-10 border-none rounded-lg cursor-pointer">
-                        </div>
+                        <input type="color" id="colorPicker" value="#ff0000" class="w-10 h-10 border-none rounded-lg cursor-pointer">
                         <!-- Brush Size Slider -->
-                        <div class="flex items-center gap-3">
-                            <label class="text-sm text-gray-600 min-w-14">Size:</label>
-                            <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
-                            <span id="sizeValue" class="text-sm text-gray-600">4px</span>
-                        </div>
+                        <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
+                        <span id="sizeValue" class="text-sm text-gray-600">4px</span>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div>
-                    <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Actions</h3>
-                    <div class="flex flex-col gap-2">
-                        <!-- Draw Mode Button -->
-                        <button id="drawModeBtn" class="px-3 py-3 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors">
-                            ✏️ Start Drawing
-                        </button>
-                        <!-- Clear Canvas Button -->
-                        <button id="clearCanvas" class="px-3 py-3 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors">
-                            🗑️ Clear All
-                        </button>
-                        <!-- Save Drawing Button -->
-                        <!-- <button id="saveDrawing" class="px-3 py-3 bg-teal-500 text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition-colors">
-                            💾 Save Tutorial
-                        </button> -->
-                        <!-- Save with Timestamp Button -->
-                        <button id="saveWithTimestamp" class="px-3 py-3 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600 transition-colors">
-                            ⏰ Save at Time
-                        </button>
-                    </div>
-                </div>
             </aside>
         </section>
 

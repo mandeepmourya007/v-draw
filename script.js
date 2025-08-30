@@ -653,6 +653,9 @@ const YouTubeManager = {
                     console.log('Player is ready');
                     CanvasUtils.resize();
                     event.target.playVideo();
+                    
+                    // Start time update interval
+                    this.startTimeUpdater();
                 },
                 'onStateChange': (event) => {
                     console.log('Player state changed:', event.data);
@@ -663,6 +666,39 @@ const YouTubeManager = {
                 }
             }
         });
+    },
+
+    /**
+     * Start time updater interval
+     */
+    startTimeUpdater() {
+        // Clear any existing interval
+        if (this.timeUpdateInterval) {
+            clearInterval(this.timeUpdateInterval);
+        }
+        
+        // Update time every second
+        this.timeUpdateInterval = setInterval(() => {
+            if (AppState.player && typeof AppState.player.getCurrentTime === 'function') {
+                try {
+                    const currentTime = AppState.player.getCurrentTime();
+                    const duration = AppState.player.getDuration();
+                    
+                    // Update time display
+                    const currentTimeElement = document.getElementById('currentTime');
+                    const totalTimeElement = document.getElementById('totalTime');
+                    
+                    if (currentTimeElement) {
+                        currentTimeElement.textContent = TimeUtils.format(currentTime || 0);
+                    }
+                    if (totalTimeElement) {
+                        totalTimeElement.textContent = TimeUtils.format(duration || 0);
+                    }
+                } catch (error) {
+                    console.log('Time update error:', error);
+                }
+            }
+        }, 1000);
     },
 
     /**
