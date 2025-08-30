@@ -810,7 +810,7 @@ function setupEventListeners() {
     document.getElementById('youtubeUrl').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') YouTubeManager.loadVideo();
     });
-    document.getElementById('loadVideo').addEventListener('click', YouTubeManager.loadVideo);
+    document.getElementById('loadVideo').addEventListener('click', () => YouTubeManager.loadVideo());
     
     // Window events
     window.addEventListener('resize', CanvasUtils.resize);
