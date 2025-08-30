@@ -16,10 +16,18 @@ const AppState = {
     ctx: null,
     overlayCanvas: null,
     overlayCtx: null,
+    infiniteCanvas: null,
+    infiniteCtx: null,
+    
+    // A4 Page Management
+    a4WidthPercent: 100, // A4 width as percentage of screen width
+    a4HeightPercent: 100, // A4 height as percentage of screen height
+    infiniteHorizontal: false, // Toggle for infinite horizontal expansion
     
     // Drawing State
     isDrawing: false,
     drawingMode: false,
+    infiniteDrawing: false,
     currentTool: 'pencil',
     currentColor: '#ff0000',
     brushSize: 4,
@@ -725,7 +733,413 @@ const YouTubeManager = {
 };
 
 // =============================================================================
-// 10. INITIALIZATION
+// 10. INFINITE CANVAS MANAGEMENT
+// =============================================================================
+const InfiniteCanvas = {
+    /**
+     * Calculate A4 dimensions based on screen size
+     */
+    calculateA4Dimensions() {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        return {
+            width: Math.floor((screenWidth * AppState.a4WidthPercent) / 100),
+            height: Math.floor((screenHeight * AppState.a4HeightPercent) / 100)
+        };
+    },
+
+    /**
+     * Initialize infinite canvas
+     */
+    init() {
+        AppState.infiniteCanvas = document.getElementById('infiniteCanvas');
+        if (AppState.infiniteCanvas) {
+            AppState.infiniteCtx = AppState.infiniteCanvas.getContext('2d', { willReadFrequently: true });
+            
+            // Set initial canvas size based on screen percentage
+            const dimensions = this.calculateA4Dimensions();
+            AppState.infiniteCanvas.width = dimensions.width;
+            AppState.infiniteCanvas.height = dimensions.height;
+            
+            this.setupEventListeners();
+            this.updateStyles();
+            this.drawPageSeparators();
+        }
+    },
+
+    /**
+     * Setup event listeners for infinite canvas
+     */
+    setupEventListeners() {
+        if (!AppState.infiniteCanvas) return;
+
+        const container = document.getElementById('infiniteCanvasContainer');
+        
+        // Mouse events
+        AppState.infiniteCanvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+        AppState.infiniteCanvas.addEventListener('mousemove', (e) => this.draw(e));
+        AppState.infiniteCanvas.addEventListener('mouseup', (e) => this.stopDrawing(e));
+        AppState.infiniteCanvas.addEventListener('mouseout', (e) => this.stopDrawing(e));
+
+        // Setup event listeners for infinite canvas
+        if (container) {
+            container.addEventListener('scroll', () => this.checkAndExpand());
+        }
+
+        // Window resize listener to recalculate dimensions
+        window.addEventListener('resize', () => this.handleResize());
+
+        // Touch events for mobile
+        AppState.infiniteCanvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.startDrawing(mouseEvent);
+        });
+
+        AppState.infiniteCanvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.draw(mouseEvent);
+        });
+
+        AppState.infiniteCanvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            this.stopDrawing(mouseEvent);
+        });
+
+        // Button events
+        document.getElementById('infiniteCanvasClear')?.addEventListener('click', () => this.clear());
+        document.getElementById('infiniteCanvasSave')?.addEventListener('click', () => this.save());
+        document.getElementById('toggleHorizontal')?.addEventListener('click', () => this.toggleHorizontalExpansion());
+    },
+
+    /**
+     * Get mouse position relative to infinite canvas
+     */
+    getMousePos(e) {
+        if (!AppState.infiniteCanvas) return null;
+        
+        const rect = AppState.infiniteCanvas.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches?.[0]?.clientX);
+        const clientY = e.clientY || (e.touches?.[0]?.clientY);
+        
+        if (!clientX || !clientY) return null;
+        
+        return {
+            x: (clientX - rect.left) * (AppState.infiniteCanvas.width / rect.width),
+            y: (clientY - rect.top) * (AppState.infiniteCanvas.height / rect.height)
+        };
+    },
+
+    /**
+     * Handle window resize - recalculate canvas dimensions
+     */
+    handleResize() {
+        if (!AppState.infiniteCanvas) return;
+        
+        const dimensions = this.calculateA4Dimensions();
+        const oldWidth = AppState.infiniteCanvas.width;
+        const oldHeight = AppState.infiniteCanvas.height;
+        
+        // Only resize if dimensions changed significantly
+        if (Math.abs(dimensions.width - oldWidth) > 10 || Math.abs(dimensions.height - oldHeight) > 10) {
+            // Save current content
+            const imageData = AppState.infiniteCtx.getImageData(0, 0, oldWidth, oldHeight);
+            
+            // Resize canvas
+            AppState.infiniteCanvas.width = dimensions.width;
+            AppState.infiniteCanvas.height = dimensions.height;
+            
+            // Restore content
+            AppState.infiniteCtx.putImageData(imageData, 0, 0);
+            
+            // Redraw separators and update styles
+            this.drawPageSeparators();
+            this.updateStyles();
+        }
+    },
+
+    /**
+     * Redraw separators on top of content
+     */
+    redrawSeparators() {
+        this.drawPageSeparators();
+    },
+
+    /**
+     * Start drawing on infinite canvas
+     */
+    startDrawing(e) {
+        const pos = this.getMousePos(e);
+        if (!pos) return;
+
+        AppState.infiniteDrawing = true;
+        AppState.startX = pos.x;
+        AppState.startY = pos.y;
+
+        this.updateStyles();
+        
+        if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
+            AppState.infiniteCtx.beginPath();
+            AppState.infiniteCtx.moveTo(pos.x, pos.y);
+        }
+    },
+
+    /**
+     * Continue drawing on infinite canvas
+     */
+    draw(e) {
+        if (!AppState.infiniteDrawing) return;
+        
+        const pos = this.getMousePos(e);
+        if (!pos) return;
+
+        if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
+            AppState.infiniteCtx.lineTo(pos.x, pos.y);
+            AppState.infiniteCtx.stroke();
+        }
+    },
+
+    /**
+     * Stop drawing on infinite canvas
+     */
+    stopDrawing(e) {
+        if (!AppState.infiniteDrawing) return;
+        
+        AppState.infiniteDrawing = false;
+        
+        const pos = this.getMousePos(e);
+        if (!pos) return;
+
+        // Draw shapes for non-pencil tools
+        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser') {
+            this.updateStyles();
+            
+            switch (AppState.currentTool) {
+                case 'line':
+                    AppState.infiniteCtx.beginPath();
+                    AppState.infiniteCtx.moveTo(AppState.startX, AppState.startY);
+                    AppState.infiniteCtx.lineTo(pos.x, pos.y);
+                    AppState.infiniteCtx.stroke();
+                    break;
+                case 'rectangle':
+                    AppState.infiniteCtx.beginPath();
+                    AppState.infiniteCtx.rect(AppState.startX, AppState.startY, pos.x - AppState.startX, pos.y - AppState.startY);
+                    AppState.infiniteCtx.stroke();
+                    break;
+                case 'circle':
+                    const radius = Math.sqrt(Math.pow(pos.x - AppState.startX, 2) + Math.pow(pos.y - AppState.startY, 2));
+                    AppState.infiniteCtx.beginPath();
+                    AppState.infiniteCtx.arc(AppState.startX, AppState.startY, radius, 0, 2 * Math.PI);
+                    AppState.infiniteCtx.stroke();
+                    break;
+                case 'arrow':
+                    const headlen = 20;
+                    const angle = Math.atan2(pos.y - AppState.startY, pos.x - AppState.startX);
+                    
+                    AppState.infiniteCtx.beginPath();
+                    AppState.infiniteCtx.moveTo(AppState.startX, AppState.startY);
+                    AppState.infiniteCtx.lineTo(pos.x, pos.y);
+                    AppState.infiniteCtx.stroke();
+                    
+                    AppState.infiniteCtx.beginPath();
+                    AppState.infiniteCtx.moveTo(pos.x, pos.y);
+                    AppState.infiniteCtx.lineTo(pos.x - headlen * Math.cos(angle - Math.PI / 6), pos.y - headlen * Math.sin(angle - Math.PI / 6));
+                    AppState.infiniteCtx.moveTo(pos.x, pos.y);
+                    AppState.infiniteCtx.lineTo(pos.x - headlen * Math.cos(angle + Math.PI / 6), pos.y - headlen * Math.sin(angle + Math.PI / 6));
+                    AppState.infiniteCtx.stroke();
+                    break;
+            }
+        }
+        
+        // Redraw page separators to keep them visible
+        this.redrawSeparators();
+    },
+
+    /**
+     * Update drawing styles for infinite canvas
+     */
+    updateStyles() {
+        if (!AppState.infiniteCtx) return;
+
+        if (AppState.currentTool === 'eraser') {
+            AppState.infiniteCtx.globalCompositeOperation = 'destination-out';
+            AppState.infiniteCtx.lineWidth = AppState.brushSize * 2;
+        } else {
+            AppState.infiniteCtx.globalCompositeOperation = 'source-over';
+            AppState.infiniteCtx.strokeStyle = AppState.currentColor;
+            AppState.infiniteCtx.lineWidth = AppState.brushSize;
+        }
+        
+        AppState.infiniteCtx.lineCap = 'round';
+        AppState.infiniteCtx.lineJoin = 'round';
+    },
+
+    /**
+     * Clear infinite canvas
+     */
+    clear() {
+        if (AppState.infiniteCtx && AppState.infiniteCanvas) {
+            AppState.infiniteCtx.clearRect(0, 0, AppState.infiniteCanvas.width, AppState.infiniteCanvas.height);
+            // Redraw page separators after clearing
+            this.drawPageSeparators();
+        }
+    },
+
+    /**
+     * Draw page separators for A4 pages
+     */
+    drawPageSeparators() {
+        if (!AppState.infiniteCtx || !AppState.infiniteCanvas) return;
+
+        const ctx = AppState.infiniteCtx;
+        const canvasWidth = AppState.infiniteCanvas.width;
+        const canvasHeight = AppState.infiniteCanvas.height;
+        
+        // Save current drawing state
+        ctx.save();
+        
+        // Get current A4 dimensions
+        const dimensions = this.calculateA4Dimensions();
+        
+        // Draw horizontal page separators (every A4 height) - BLACK SOLID LINES
+        ctx.strokeStyle = '#000000'; // Black color
+        ctx.lineWidth = 3; // Thick line
+        ctx.setLineDash([]); // Solid line (no dashes)
+        ctx.globalCompositeOperation = 'source-over'; // Ensure lines appear on top
+        
+        for (let y = dimensions.height; y < canvasHeight; y += dimensions.height) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvasWidth, y);
+            ctx.stroke();
+        }
+        
+        // Draw vertical page separators (every A4 width) - lighter lines
+        ctx.strokeStyle = '#9ca3af'; // Light gray for vertical lines
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]); // Dashed line
+        
+        for (let x = dimensions.width; x < canvasWidth; x += dimensions.width) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvasHeight);
+            ctx.stroke();
+        }
+        
+        // Restore drawing state
+        ctx.restore();
+    },
+
+    /**
+     * Toggle horizontal expansion feature
+     */
+    toggleHorizontalExpansion() {
+        AppState.infiniteHorizontal = !AppState.infiniteHorizontal;
+        const button = document.getElementById('toggleHorizontal');
+        
+        if (AppState.infiniteHorizontal) {
+            button.textContent = '↔️ Horizontal On';
+            button.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+            button.classList.add('bg-green-500', 'hover:bg-green-600');
+        } else {
+            button.textContent = '↔️ Horizontal Off';
+            button.classList.remove('bg-green-500', 'hover:bg-green-600');
+            button.classList.add('bg-gray-500', 'hover:bg-gray-600');
+        }
+    },
+
+    /**
+     * Check if canvas needs to be expanded and expand it
+     */
+    checkAndExpand() {
+        const container = document.getElementById('infiniteCanvasContainer');
+        if (!container || !AppState.infiniteCanvas) return;
+
+        const scrollLeft = container.scrollLeft;
+        const scrollTop = container.scrollTop;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const canvasWidth = AppState.infiniteCanvas.width;
+        const canvasHeight = AppState.infiniteCanvas.height;
+
+        const expandThreshold = 100; // Expand when within 100px of edge
+        let needsExpansion = false;
+        let newWidth = canvasWidth;
+        let newHeight = canvasHeight;
+
+        // Get current A4 dimensions
+        const dimensions = this.calculateA4Dimensions();
+
+        // Check if we need to expand horizontally (only if toggle is enabled)
+        if (AppState.infiniteHorizontal && scrollLeft + containerWidth > canvasWidth - expandThreshold) {
+            newWidth = canvasWidth + dimensions.width;
+            needsExpansion = true;
+        }
+
+        // Always allow vertical expansion (add new A4 pages)
+        if (scrollTop + containerHeight > canvasHeight - expandThreshold) {
+            newHeight = canvasHeight + dimensions.height;
+            needsExpansion = true;
+        }
+
+        if (needsExpansion) {
+            this.expandCanvas(newWidth, newHeight);
+        }
+    },
+
+    /**
+     * Expand canvas size while preserving existing content
+     */
+    expandCanvas(newWidth, newHeight) {
+        if (!AppState.infiniteCanvas || !AppState.infiniteCtx) return;
+
+        // Save current canvas content
+        const imageData = AppState.infiniteCtx.getImageData(0, 0, AppState.infiniteCanvas.width, AppState.infiniteCanvas.height);
+        
+        // Resize canvas
+        AppState.infiniteCanvas.width = newWidth;
+        AppState.infiniteCanvas.height = newHeight;
+        
+        // Restore content
+        AppState.infiniteCtx.putImageData(imageData, 0, 0);
+        
+        // Redraw page separators
+        this.drawPageSeparators();
+        
+        // Reapply styles
+        this.updateStyles();
+        
+        console.log(`Canvas expanded to ${newWidth}x${newHeight}`);
+    },
+
+    /**
+     * Save infinite canvas as image
+     */
+    save() {
+        if (!AppState.infiniteCanvas) return;
+        
+        const link = document.createElement('a');
+        link.download = `infinite-canvas-${Date.now()}.png`;
+        link.href = AppState.infiniteCanvas.toDataURL();
+        link.click();
+        
+        UI.showNotification('Canvas saved as image!');
+    }
+};
+
+// =============================================================================
+// 11. INITIALIZATION
 // =============================================================================
 function init() {
     console.log('Initializing Tutorial Maker...');
@@ -744,6 +1158,9 @@ function init() {
     // Setup event listeners
     setupEventListeners();
     
+    // Initialize infinite canvas
+    InfiniteCanvas.init();
+    
     // Initialize drawing styles and set default tool
     const pencilBtn = document.getElementById('pencil');
     if (pencilBtn) {
@@ -754,6 +1171,7 @@ function init() {
     console.log('Tutorial Maker initialized successfully');
     console.log('Canvas:', AppState.canvas);
     console.log('Overlay Canvas:', AppState.overlayCanvas);
+    console.log('Infinite Canvas:', AppState.infiniteCanvas);
 }
 
 function setupEventListeners() {

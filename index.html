@@ -72,6 +72,29 @@
             </div>
         </section>
 
+        <!-- Infinite Drawing Canvas -->
+        <section class="mb-8 bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-800">📝 Infinite Canvas</h2>
+                <div class="flex gap-2">
+                    <button id="toggleHorizontal" class="px-3 py-1.5 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors" style="
+                    display: none;
+                ">
+                        ↔️ Horizontal Off
+                    </button>
+                    <button id="infiniteCanvasClear" class="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors">
+                        🗑️ Clear
+                    </button>
+                    <button id="infiniteCanvasSave" class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors">
+                        💾 Save
+                    </button>
+                </div>
+            </div>
+            <div id="infiniteCanvasContainer" class="relative bg-gray-100" style="height: 400px; overflow: auto;">
+                <canvas id="infiniteCanvas" class="absolute top-0 left-0 cursor-crosshair" style="background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 10px;"></canvas>
+            </div>
+        </section>
+
         <!-- Main Workspace: Video + Tools -->
         <section class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             
