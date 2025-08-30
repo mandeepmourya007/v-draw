@@ -100,18 +100,36 @@
                     
                     <!-- Eraser Tool -->
                     <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
+                    
+                    <!-- Text Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="text" title="Add text">📝</button>
                 </div>
             </div>
 
             <!-- Customization Controls -->
             <div class="mb-6">
                 <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Customize</h3>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 mb-3">
                     <!-- Color Picker -->
                     <input type="color" id="colorPicker" value="#ff0000" class="w-10 h-10 border-none rounded-lg cursor-pointer">
                     <!-- Brush Size Slider -->
                     <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
                     <span id="sizeValue" class="text-sm text-gray-600">4px</span>
+                </div>
+                
+                <!-- Text Controls (shown when text tool is selected) -->
+                <div id="textControls" class="hidden flex items-center gap-3">
+                    <!-- Font Size -->
+                    <input type="range" id="fontSize" min="12" max="72" value="24" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
+                    <span id="fontSizeValue" class="text-sm text-gray-600">24px</span>
+                    <!-- Font Family -->
+                    <select id="fontFamily" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="Arial">Arial</option>
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Times New Roman">Times</option>
+                        <option value="Courier New">Courier</option>
+                        <option value="Georgia">Georgia</option>
+                    </select>
                 </div>
             </div>
         </section>

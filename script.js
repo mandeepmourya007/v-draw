@@ -32,6 +32,12 @@ const AppState = {
     currentColor: '#ff0000',
     brushSize: 4,
     
+    // Text State
+    fontSize: 24,
+    fontFamily: 'Arial',
+    isTyping: false,
+    currentTextInput: null,
+    
     // Drawing Coordinates
     startX: 0,
     startY: 0,
@@ -161,11 +167,24 @@ const DrawingUtils = {
             rectangle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⬜</text></svg>") 12 12, crosshair',
             circle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⭕</text></svg>") 12 12, crosshair',
             arrow: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>➡️</text></svg>") 12 12, crosshair',
-            eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, crosshair'
+            eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, crosshair',
+            text: 'text'
         };
         
         AppState.overlayCanvas.style.cursor = cursors[AppState.currentTool] || 'crosshair';
     },
+
+    /**
+     * Show/hide text controls based on selected tool
+     */
+    toggleTextControls() {
+        const textControls = document.getElementById('textControls');
+        if (AppState.currentTool === 'text') {
+            textControls.classList.remove('hidden');
+        } else {
+            textControls.classList.add('hidden');
+        }
+    }
 
 };
 
@@ -416,6 +435,12 @@ const DrawingEvents = {
         const pos = CanvasUtils.getMousePos(e);
         if (!pos) return;
         
+        // Handle text tool differently
+        if (AppState.currentTool === 'text') {
+            this.handleTextClick(pos.x, pos.y);
+            return;
+        }
+        
         AppState.isDrawing = true;
         AppState.startX = pos.x;
         AppState.startY = pos.y;
@@ -593,6 +618,115 @@ const DrawingEvents = {
         AppState.overlayCtx.moveTo(endX, endY);
         AppState.overlayCtx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
         AppState.overlayCtx.stroke();
+    },
+
+    /**
+     * Handle text tool click
+     */
+    handleTextClick(x, y) {
+        console.log(`Text tool clicked at (${x}, ${y})`);
+        
+        // Remove any existing text input
+        this.removeTextInput();
+        
+        // Create text input element
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.style.position = 'fixed';
+        textInput.style.backgroundColor = 'white';
+        textInput.style.border = '2px solid #3b82f6';
+        textInput.style.outline = 'none';
+        textInput.style.padding = '4px 8px';
+        textInput.style.zIndex = '9999';
+        textInput.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        textInput.style.borderRadius = '4px';
+        textInput.style.fontSize = AppState.fontSize + 'px';
+        textInput.style.fontFamily = AppState.fontFamily;
+        textInput.style.color = AppState.currentColor;
+        textInput.style.minWidth = '150px';
+        textInput.style.height = 'auto';
+        textInput.placeholder = 'Type text...';
+        textInput.autocomplete = 'off';
+        textInput.spellcheck = false;
+        
+        // Position relative to the active canvas
+        const activeCanvas = CanvasUtils.getActiveCanvas();
+        const canvasRect = activeCanvas.getBoundingClientRect();
+        const screenX = canvasRect.left + x * (canvasRect.width / activeCanvas.width);
+        const screenY = canvasRect.top + y * (canvasRect.height / activeCanvas.height);
+        
+        textInput.style.left = screenX + 'px';
+        textInput.style.top = screenY + 'px';
+        
+        console.log(`Text input positioned at screen coordinates (${screenX}, ${screenY})`);
+        
+        // Add to document
+        document.body.appendChild(textInput);
+        AppState.currentTextInput = textInput;
+        AppState.isTyping = true;
+        
+        // Force focus with delay to ensure element is rendered
+        setTimeout(() => {
+            textInput.focus();
+            textInput.select();
+            console.log('Text input focused and selected');
+        }, 10);
+        
+        // Handle text completion
+        const completeText = () => {
+            const text = textInput.value.trim();
+            console.log(`Completing text: "${text}"`);
+            if (text) {
+                this.drawText(text, x, y);
+            }
+            this.removeTextInput();
+        };
+        
+        // Event listeners
+        textInput.addEventListener('blur', completeText);
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                completeText();
+            } else if (e.key === 'Escape') {
+                this.removeTextInput();
+            }
+        });
+    },
+
+    /**
+     * Draw text on canvas
+     */
+    drawText(text, x, y) {
+        // Always draw on main canvas for persistence
+        const mainCtx = AppState.ctx;
+        if (mainCtx) {
+            mainCtx.font = `${AppState.fontSize}px ${AppState.fontFamily}`;
+            mainCtx.fillStyle = AppState.currentColor;
+            mainCtx.textBaseline = 'top';
+            mainCtx.fillText(text, x, y);
+        }
+        
+        // If in drawing mode, also draw on overlay for immediate visibility
+        if (AppState.drawingMode && AppState.overlayCtx) {
+            AppState.overlayCtx.font = `${AppState.fontSize}px ${AppState.fontFamily}`;
+            AppState.overlayCtx.fillStyle = AppState.currentColor;
+            AppState.overlayCtx.textBaseline = 'top';
+            AppState.overlayCtx.fillText(text, x, y);
+        }
+        
+        console.log(`Drawing text: "${text}" at (${x}, ${y}) with font ${AppState.fontSize}px ${AppState.fontFamily}`);
+    },
+
+    /**
+     * Remove text input element
+     */
+    removeTextInput() {
+        if (AppState.currentTextInput) {
+            document.body.removeChild(AppState.currentTextInput);
+            AppState.currentTextInput = null;
+            AppState.isTyping = false;
+        }
     }
 };
 
@@ -953,14 +1087,22 @@ const InfiniteCanvas = {
      * Start drawing on infinite canvas
      */
     startDrawing(e) {
+        if (!AppState.infiniteCanvas) return;
+        
         const pos = this.getMousePos(e);
         if (!pos) return;
-
+        
+        // Handle text tool differently
+        if (AppState.currentTool === 'text') {
+            this.handleInfiniteTextClick(pos.x, pos.y);
+            return;
+        }
+        
         AppState.infiniteDrawing = true;
         AppState.startX = pos.x;
         AppState.startY = pos.y;
-
-        this.updateStyles();
+        
+        AppState.infiniteCanvas.classList.add('drawing');
         
         if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
             AppState.infiniteCtx.beginPath();
@@ -1208,6 +1350,99 @@ const InfiniteCanvas = {
         link.click();
         
         UI.showNotification('Canvas saved as image!');
+    },
+
+    /**
+     * Handle text tool click on infinite canvas
+     */
+    handleInfiniteTextClick(x, y) {
+        console.log(`Infinite canvas text tool clicked at (${x}, ${y})`);
+        
+        // Remove any existing text input
+        DrawingEvents.removeTextInput();
+        
+        // Create text input element
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.style.position = 'fixed';
+        textInput.style.backgroundColor = 'white';
+        textInput.style.border = '2px solid #3b82f6';
+        textInput.style.outline = 'none';
+        textInput.style.padding = '4px 8px';
+        textInput.style.zIndex = '9999';
+        textInput.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        textInput.style.borderRadius = '4px';
+        textInput.style.fontSize = AppState.fontSize + 'px';
+        textInput.style.fontFamily = AppState.fontFamily;
+        textInput.style.color = AppState.currentColor;
+        textInput.style.minWidth = '150px';
+        textInput.style.height = 'auto';
+        textInput.placeholder = 'Type text...';
+        textInput.autocomplete = 'off';
+        textInput.spellcheck = false;
+        
+        // Position relative to the infinite canvas
+        const canvasRect = AppState.infiniteCanvas.getBoundingClientRect();
+        const screenX = canvasRect.left + x * (canvasRect.width / AppState.infiniteCanvas.width);
+        const screenY = canvasRect.top + y * (canvasRect.height / AppState.infiniteCanvas.height);
+        
+        textInput.style.left = screenX + 'px';
+        textInput.style.top = screenY + 'px';
+        
+        console.log(`Infinite canvas text input positioned at screen coordinates (${screenX}, ${screenY})`);
+        
+        // Add to document
+        document.body.appendChild(textInput);
+        AppState.currentTextInput = textInput;
+        AppState.isTyping = true;
+        
+        // Force focus with delay to ensure element is rendered
+        setTimeout(() => {
+            textInput.focus();
+            textInput.select();
+            console.log('Text input focused and selected');
+        }, 10);
+        
+        // Handle text completion
+        const completeText = () => {
+            const text = textInput.value.trim();
+            console.log(`Completing infinite canvas text: "${text}"`);
+            if (text) {
+                this.drawInfiniteText(text, x, y);
+            }
+            DrawingEvents.removeTextInput();
+        };
+        
+        // Event listeners
+        textInput.addEventListener('blur', completeText);
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                completeText();
+            } else if (e.key === 'Escape') {
+                DrawingEvents.removeTextInput();
+            }
+        });
+    },
+
+    /**
+     * Draw text on infinite canvas
+     */
+    drawInfiniteText(text, x, y) {
+        if (!AppState.infiniteCtx) {
+            console.error('Infinite canvas context not available');
+            return;
+        }
+        
+        // Set text styles
+        AppState.infiniteCtx.font = `${AppState.fontSize}px ${AppState.fontFamily}`;
+        AppState.infiniteCtx.fillStyle = AppState.currentColor;
+        AppState.infiniteCtx.textBaseline = 'top';
+        
+        // Draw text
+        AppState.infiniteCtx.fillText(text, x, y);
+        
+        console.log(`Drew text "${text}" on infinite canvas at (${x}, ${y}) with font ${AppState.fontSize}px ${AppState.fontFamily}`);
     }
 };
 
@@ -1249,7 +1484,7 @@ function init() {
 
 function setupEventListeners() {
     // Tool buttons
-    ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser'].forEach(tool => {
+    ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text'].forEach(tool => {
         document.getElementById(tool).addEventListener('click', () => {
             AppState.currentTool = tool;
             
@@ -1264,6 +1499,7 @@ function setupEventListeners() {
             selectedBtn.classList.add('bg-indigo-500', 'border-indigo-600', 'text-white');
             
             DrawingUtils.updateStyles();
+            DrawingUtils.toggleTextControls();
         });
     });
     
@@ -1277,6 +1513,16 @@ function setupEventListeners() {
         AppState.brushSize = e.target.value;
         document.getElementById('sizeValue').textContent = AppState.brushSize + 'px';
         DrawingUtils.updateStyles();
+    });
+    
+    // Text controls
+    document.getElementById('fontSize').addEventListener('input', (e) => {
+        AppState.fontSize = e.target.value;
+        document.getElementById('fontSizeValue').textContent = AppState.fontSize + 'px';
+    });
+    
+    document.getElementById('fontFamily').addEventListener('change', (e) => {
+        AppState.fontFamily = e.target.value;
     });
     
     // Action buttons
