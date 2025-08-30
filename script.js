@@ -23,11 +23,8 @@ const AppState = {
     currentTool: 'pencil',
     currentColor: '#ff0000',
     brushSize: 4,
-    isEraser: false,
     
     // Drawing Coordinates
-    lastX: 0,
-    lastY: 0,
     startX: 0,
     startY: 0,
     
@@ -162,60 +159,6 @@ const DrawingUtils = {
         AppState.overlayCanvas.style.cursor = cursors[AppState.currentTool] || 'crosshair';
     },
 
-    /**
-     * Draw line between two points
-     */
-    drawLine(x1, y1, x2, y2) {
-        const activeCtx = CanvasUtils.getActiveContext();
-        activeCtx.beginPath();
-        activeCtx.moveTo(x1, y1);
-        activeCtx.lineTo(x2, y2);
-        activeCtx.stroke();
-    },
-
-    /**
-     * Draw rectangle
-     */
-    drawRectangle(x1, y1, x2, y2) {
-        const activeCtx = CanvasUtils.getActiveContext();
-        const width = x2 - x1;
-        const height = y2 - y1;
-        activeCtx.strokeRect(x1, y1, width, height);
-    },
-
-    /**
-     * Draw circle
-     */
-    drawCircle(x1, y1, x2, y2) {
-        const activeCtx = CanvasUtils.getActiveContext();
-        const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-        activeCtx.beginPath();
-        activeCtx.arc(x1, y1, radius, 0, Math.PI * 2);
-        activeCtx.stroke();
-    },
-
-    /**
-     * Draw arrow with arrowhead
-     */
-    drawArrow(x1, y1, x2, y2) {
-        const activeCtx = CanvasUtils.getActiveContext();
-        const headlen = 15;
-        const angle = Math.atan2(y2 - y1, x2 - x1);
-        
-        // Main line
-        activeCtx.beginPath();
-        activeCtx.moveTo(x1, y1);
-        activeCtx.lineTo(x2, y2);
-        activeCtx.stroke();
-        
-        // Arrowhead
-        activeCtx.beginPath();
-        activeCtx.moveTo(x2, y2);
-        activeCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-        activeCtx.moveTo(x2, y2);
-        activeCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-        activeCtx.stroke();
-    }
 };
 
 // =============================================================================
@@ -305,7 +248,8 @@ const TimestampManager = {
             Math.abs(drawing.time - currentTime) < 1
         );
         
-        const drawingData = CanvasUtils.getActiveCanvas().toDataURL('image/png');
+        // Save from main canvas (where all drawings are stored permanently)
+        const drawingData = AppState.canvas.toDataURL('image/png');
         
         if (existing) {
             // Update existing
@@ -325,14 +269,22 @@ const TimestampManager = {
             UI.showNotification(`Drawing saved at ${formattedTime}!`);
         }
         
-        // Cleanup
-        AppState.currentTimestamp = currentTime;
-        AppState.currentDrawingState = null;
-        CanvasUtils.clear();
+        // Copy overlay content to main canvas before closing drawing mode
+        if (AppState.overlayCanvas && AppState.canvas) {
+            AppState.ctx.drawImage(AppState.overlayCanvas, 0, 0);
+            AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+        }
         
+        // Close drawing mode
         if (AppState.drawingMode) {
             DrawingMode.close();
         }
+        
+        // Clear main canvas to hide drawing after saving
+        AppState.ctx.clearRect(0, 0, AppState.canvas.width, AppState.canvas.height);
+        
+        AppState.currentTimestamp = currentTime;
+        AppState.currentDrawingState = null;
         
         this.updateUI();
     },
@@ -361,13 +313,14 @@ const TimestampManager = {
      * Load drawing for specific timestamp
      */
     loadDrawing(drawingData, timestamp = null) {
-        const activeCanvas = CanvasUtils.getActiveCanvas();
-        const activeCtx = CanvasUtils.getActiveContext();
+        // Always load on main canvas to ensure visibility
+        const mainCanvas = AppState.canvas;
+        const mainCtx = AppState.ctx;
         
         const img = new Image();
         img.onload = function() {
-            activeCtx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
-            activeCtx.drawImage(img, 0, 0);
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            mainCtx.drawImage(img, 0, 0);
         };
         img.src = drawingData;
         
@@ -456,8 +409,8 @@ const DrawingEvents = {
         if (!pos) return;
         
         AppState.isDrawing = true;
-        AppState.startX = AppState.lastX = pos.x;
-        AppState.startY = AppState.lastY = pos.y;
+        AppState.startX = pos.x;
+        AppState.startY = pos.y;
         
         CanvasUtils.getActiveCanvas().classList.add('drawing');
         
@@ -497,9 +450,6 @@ const DrawingEvents = {
             // Show preview for shape tools
             this.drawPreview(pos.x, pos.y);
         }
-        
-        AppState.lastX = pos.x;
-        AppState.lastY = pos.y;
     },
 
     /**
@@ -519,8 +469,7 @@ const DrawingEvents = {
             // Clear preview from overlay
             AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
             
-            // Switch to main canvas for final drawing
-            const originalContext = CanvasUtils.getActiveContext();
+            // Draw final shape on main canvas
             const mainCtx = AppState.ctx;
             
             // Set styles on main canvas
@@ -763,7 +712,6 @@ function setupEventListeners() {
     ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser'].forEach(tool => {
         document.getElementById(tool).addEventListener('click', () => {
             AppState.currentTool = tool;
-            AppState.isEraser = (tool === 'eraser');
             
             // Update active tool UI
             document.querySelectorAll('.tool-btn').forEach(btn => {
