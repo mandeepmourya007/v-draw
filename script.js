@@ -609,28 +609,73 @@ const YouTubeManager = {
     },
 
     /**
+     * Show loading state
+     */
+    showLoader() {
+        document.getElementById('videoPlaceholder').classList.add('hidden');
+        document.getElementById('videoError').classList.add('hidden');
+        document.getElementById('videoLoader').classList.remove('hidden');
+    },
+
+    /**
+     * Show error state
+     */
+    showError(message = 'Please check the URL and try again') {
+        document.getElementById('videoPlaceholder').classList.add('hidden');
+        document.getElementById('videoLoader').classList.add('hidden');
+        document.getElementById('videoError').classList.remove('hidden');
+        document.getElementById('errorMessage').textContent = message;
+    },
+
+    /**
+     * Hide all states (when video loads successfully)
+     */
+    hideStates() {
+        document.getElementById('videoPlaceholder').classList.add('hidden');
+        document.getElementById('videoLoader').classList.add('hidden');
+        document.getElementById('videoError').classList.add('hidden');
+    },
+
+    /**
+     * Show placeholder state
+     */
+    showPlaceholder() {
+        document.getElementById('videoLoader').classList.add('hidden');
+        document.getElementById('videoError').classList.add('hidden');
+        document.getElementById('videoPlaceholder').classList.remove('hidden');
+    },
+
+    /**
      * Load video from URL
      */
     loadVideo() {
         const url = document.getElementById('youtubeUrl').value.trim();
         
         if (!url) {
-            alert('Please enter a YouTube URL');
+            this.showError('Please enter a YouTube URL');
             return;
         }
         
         const videoId = this.extractVideoId(url);
         if (!videoId) {
-            alert('Please enter a valid YouTube URL');
+            this.showError('Invalid YouTube URL format. Please check the URL and try again.');
             return;
         }
+
+        // Show loading state
+        this.showLoader();
 
         if (!AppState.apiReady) {
             setTimeout(() => this.loadVideo(), 100);
             return;
         }
         
-        document.getElementById('player').innerHTML = '';
+        // Clear previous player content but keep the state containers
+        const playerDiv = document.getElementById('player');
+        const existingIframe = playerDiv.querySelector('iframe');
+        if (existingIframe) {
+            existingIframe.remove();
+        }
         
         if (!AppState.player) {
             this.createPlayer(videoId);
@@ -645,7 +690,12 @@ const YouTubeManager = {
      * Create YouTube player
      */
     createPlayer(videoId) {
-        AppState.player = new YT.Player('player', {
+        // Create a temporary div for the player
+        const tempDiv = document.createElement('div');
+        tempDiv.id = 'temp-player';
+        document.getElementById('player').appendChild(tempDiv);
+        
+        AppState.player = new YT.Player('temp-player', {
             height: '100%',
             width: '100%',
             videoId: videoId,
@@ -659,18 +709,41 @@ const YouTubeManager = {
             events: {
                 'onReady': (event) => {
                     console.log('Player is ready');
+                    this.hideStates();
                     CanvasUtils.resize();
                     event.target.playVideo();
                     
                     // Start time update interval
                     this.startTimeUpdater();
+                    
+                    UI.showNotification('Video loaded successfully!');
                 },
                 'onStateChange': (event) => {
                     console.log('Player state changed:', event.data);
                 },
                 'onError': (event) => {
                     console.error('YouTube Player Error:', event.data);
-                    alert('Error loading video. Please check the URL and try again.');
+                    let errorMessage = 'Error loading video. Please check the URL and try again.';
+                    
+                    switch(event.data) {
+                        case 2:
+                            errorMessage = 'Invalid video ID. Please check the YouTube URL.';
+                            break;
+                        case 5:
+                            errorMessage = 'Video cannot be played in HTML5 player.';
+                            break;
+                        case 100:
+                            errorMessage = 'Video not found. It may have been removed or is private.';
+                            break;
+                        case 101:
+                        case 150:
+                            errorMessage = 'Video owner has restricted playback on other websites.';
+                            break;
+                        default:
+                            errorMessage = 'Unknown error occurred while loading the video.';
+                    }
+                    
+                    this.showError(errorMessage);
                 }
             }
         });
@@ -1265,6 +1338,9 @@ function setupEventListeners() {
         if (e.key === 'Enter') YouTubeManager.loadVideo();
     });
     document.getElementById('loadVideo').addEventListener('click', () => YouTubeManager.loadVideo());
+    
+    // Retry button for video loading errors
+    document.getElementById('retryButton').addEventListener('click', () => YouTubeManager.loadVideo());
     
     // Window events
     window.addEventListener('resize', CanvasUtils.resize);

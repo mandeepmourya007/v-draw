@@ -52,26 +52,6 @@
     <!-- Main Application Container -->
     <main class="max-w-7xl mx-auto p-8">
         
-        <!-- YouTube URL Input Section -->
-        <section class="bg-white p-6 rounded-2xl shadow-lg mb-8">
-            <div class="flex gap-4 items-center flex-wrap">
-                <!-- URL Input Field -->
-                <input 
-                    type="text" 
-                    id="youtubeUrl" 
-                    placeholder="Paste YouTube video URL here..."
-                    class="flex-1 min-w-80 px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-indigo-500 transition-colors"
-                >
-                <!-- Load Video Button -->
-                <button 
-                    id="loadVideo"
-                    class="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:-translate-y-0.5 transition-transform"
-                >
-                    Load Video
-                </button>
-            </div>
-        </section>
-
         <!-- Infinite Drawing Canvas -->
         <section class="mb-8 bg-white rounded-2xl shadow-lg overflow-hidden">
             <div class="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
@@ -95,6 +75,66 @@
             </div>
         </section>
 
+        <!-- Drawing Tools Grid -->
+        <section class="mb-8 bg-white rounded-2xl shadow-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">🎨 Drawing Tools</h2>
+            
+            <!-- Drawing Tools Grid -->
+            <div class="mb-6">
+                <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Tools</h3>
+                <div class="flex gap-2 mb-4 overflow-x-auto">
+                    <!-- Pencil Tool (Default Active) -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
+                    
+                    <!-- Line Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
+                    
+                    <!-- Rectangle Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
+                    
+                    <!-- Circle Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
+                    
+                    <!-- Arrow Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
+                    
+                    <!-- Eraser Tool -->
+                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
+                </div>
+            </div>
+
+            <!-- Customization Controls -->
+            <div class="mb-6">
+                <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Customize</h3>
+                <div class="flex items-center gap-3">
+                    <!-- Color Picker -->
+                    <input type="color" id="colorPicker" value="#ff0000" class="w-10 h-10 border-none rounded-lg cursor-pointer">
+                    <!-- Brush Size Slider -->
+                    <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
+                    <span id="sizeValue" class="text-sm text-gray-600">4px</span>
+                </div>
+            </div>
+        </section>
+
+<!-- YouTube URL Input Section -->
+<section class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+    <div class="flex gap-4 items-center flex-wrap">
+        <!-- URL Input Field -->
+        <input 
+            type="text" 
+            id="youtubeUrl" 
+            placeholder="Paste YouTube video URL here..."
+            class="flex-1 min-w-80 px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-indigo-500 transition-colors"
+        >
+        <!-- Load Video Button -->
+        <button 
+            id="loadVideo"
+            class="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:-translate-y-0.5 transition-transform"
+        >
+            Load Video
+        </button>
+    </div>
+</section>
         <!-- Main Workspace: Video + Tools -->
         <section class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             
@@ -104,9 +144,26 @@
                     <!-- YouTube Player Container -->
                     <div id="player">
                         <!-- Placeholder content shown before video loads -->
-                        <div class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-lg flex-col gap-4">
+                        <div id="videoPlaceholder" class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-lg flex-col gap-4">
                             <div class="text-5xl">🎥</div>
-                            <div>Load a YouTube video to start creating your tutorial</div>
+                        </div>
+                        
+                        <!-- Loading spinner -->
+                        <div id="videoLoader" class="hidden flex items-center justify-center h-full bg-gray-100 text-gray-600 text-lg flex-col gap-4">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+                            <div>Loading video...</div>
+                        </div>
+                        
+                        <!-- Error message -->
+                        <div id="videoError" class="hidden flex items-center justify-center h-full bg-red-50 text-red-600 text-lg flex-col gap-4">
+                            <div class="text-5xl">❌</div>
+                            <div class="text-center">
+                                <div class="font-semibold mb-2">Failed to load video</div>
+                                <div class="text-sm" id="errorMessage">Please check the URL and try again</div>
+                            </div>
+                            <button id="retryButton" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                                Try Again
+                            </button>
                         </div>
                     </div>
                     <!-- Drawing canvas overlay -->
