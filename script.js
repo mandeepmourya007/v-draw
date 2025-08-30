@@ -225,7 +225,6 @@ const DrawingMode = {
     open() {
         if (AppState.player ) {
             AppState.player.pauseVideo();
-            AppState.player.pause();
         }
         AppState.drawingMode = true;
         
