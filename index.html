@@ -44,13 +44,13 @@
 
 <body class="bg-gray-50 text-gray-800 font-sans">
     <!-- Header Section -->
-    <header class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-5 text-center shadow-lg">
+    <header class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-5 text-center shadow-lg" style="margin-top: 80px;">
         <h1 class="text-4xl font-light mb-2">🎨 Tutorial Maker</h1>
         <p class="text-lg opacity-90">Create interactive tutorials by drawing on YouTube videos</p>
     </header>
 
     <!-- Main Application Container -->
-    <main class="max-w-7xl mx-auto p-8">
+    <main class="w-full">
         
         <!-- Infinite Drawing Canvas -->
         <section class="mb-8 bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -76,63 +76,88 @@
         </section>
 
         <!-- Drawing Tools Grid -->
-        <section class="mb-8 bg-white rounded-2xl shadow-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">🎨 Drawing Tools</h2>
+        <section class="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b p-4">
+            <div class="max-w-7xl mx-auto">
             
-            <!-- Drawing Tools Grid -->
-            <div class="mb-6">
-                <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Tools</h3>
-                <div class="flex gap-2 mb-4 overflow-x-auto">
-                    <!-- Pencil Tool (Default Active) -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
+            <!-- All Tools and Controls in One Line -->
+            <div class="flex items-center gap-4 flex-wrap">
+                <!-- Tools Section -->
+                <div class="flex items-center gap-2">
+                    <h3 class="text-xs text-gray-600 uppercase tracking-wider font-medium">Tools</h3>
+                    <div class="flex gap-2">
+                        <!-- Pencil Tool (Default Active) -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
+                        
+                        <!-- Line Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
+                        
+                        <!-- Rectangle Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
+                        
+                        <!-- Circle Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
+                        
+                        <!-- Arrow Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
+                        
+                        <!-- Eraser Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
+                        
+                        <!-- Text Tool -->
+                        <button class="tool-btn w-10 h-10 flex-shrink-0 border-2 border-gray-200 bg-white rounded-lg cursor-pointer flex items-center justify-center text-lg hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="text" title="Add text">📝</button>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="w-px h-8 bg-gray-300"></div>
+
+                <!-- Customization Controls -->
+                <div class="flex items-center gap-3 flex-1">
+                    <h3 class="text-xs text-gray-600 uppercase tracking-wider font-medium">Customize</h3>
                     
-                    <!-- Line Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
+                    <!-- Color Picker -->
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-gray-600">Color</label>
+                        <input type="color" id="colorPicker" value="#ff0000" class="w-8 h-8 border-none rounded-lg cursor-pointer">
+                    </div>
                     
-                    <!-- Rectangle Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
+                    <!-- Brush Size Slider -->
+                    <div class="flex items-center gap-2 min-w-24">
+                        <label class="text-xs text-gray-600">Size</label>
+                        <input type="range" id="brushSize" min="2" max="20" value="4" class="w-20 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
+                        <span id="sizeValue" class="text-xs text-gray-600 w-8">4px</span>
+                    </div>
                     
-                    <!-- Circle Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
+                    <!-- Font Size -->
+                    <div class="flex items-center gap-2 min-w-24">
+                        <label class="text-xs text-gray-600">Font</label>
+                        <input type="range" id="fontSize" min="12" max="72" value="24" class="w-20 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
+                        <span id="fontSizeValue" class="text-xs text-gray-600 w-8">24px</span>
+                    </div>
                     
-                    <!-- Arrow Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
-                    
-                    <!-- Eraser Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
-                    
-                    <!-- Text Tool -->
-                    <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="text" title="Add text">📝</button>
+                    <!-- Font Family -->
+                    <div class="flex items-center gap-2">
+                        <select id="fontFamily" class="px-2 py-1 border border-gray-300 rounded text-xs">
+                            <option value="Arial">Arial</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Times New Roman">Times</option>
+                            <option value="Courier New">Courier</option>
+                            <option value="Georgia">Georgia</option>
+                        </select>
+                    </div>
+                </div>
+ 
+
+                <!-- Canvas Actions -->
+                <div class="flex items-center gap-2">
+                    <button id="toggleHorizontal" class="px-3 py-1.5 bg-gray-500 text-white text-xs rounded-lg hover:bg-gray-600 transition-colors" style="display: none;">
+                        ↔️ Horizontal Off
+                    </button>
                 </div>
             </div>
-
-            <!-- Customization Controls -->
-            <div class="mb-6">
-                <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Customize</h3>
-                <div class="flex items-center gap-3 mb-3">
-                    <!-- Color Picker -->
-                    <input type="color" id="colorPicker" value="#ff0000" class="w-10 h-10 border-none rounded-lg cursor-pointer">
-                    <!-- Brush Size Slider -->
-                    <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
-                    <span id="sizeValue" class="text-sm text-gray-600">4px</span>
-                </div>
-                
-                <!-- Text Controls (shown when text tool is selected) -->
-                <div id="textControls" class="hidden flex items-center gap-3">
-                    <!-- Font Size -->
-                    <input type="range" id="fontSize" min="12" max="72" value="24" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
-                    <span id="fontSizeValue" class="text-sm text-gray-600">24px</span>
-                    <!-- Font Family -->
-                    <select id="fontFamily" class="px-2 py-1 border border-gray-300 rounded text-sm">
-                        <option value="Arial">Arial</option>
-                        <option value="Helvetica">Helvetica</option>
-                        <option value="Times New Roman">Times</option>
-                        <option value="Courier New">Courier</option>
-                        <option value="Georgia">Georgia</option>
-                    </select>
-                </div>
             </div>
         </section>
+
 
 <!-- YouTube URL Input Section -->
 <section class="bg-white p-6 rounded-2xl shadow-lg mb-8">
@@ -153,12 +178,12 @@
         </button>
     </div>
 </section>
-        <!-- Main Workspace: Video + Tools -->
-        <section class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- Main Workspace: Video Only -->
+        <section class="mb-8">
             
-            <!-- Video Player Section (3/4 width on desktop) -->
-            <div class="lg:col-span-3 bg-white rounded-2xl overflow-hidden shadow-lg">
-                <div class="relative w-full aspect-video bg-black">
+            <!-- Video Player Section (full width) -->
+            <div class="bg-white overflow-hidden shadow-lg">
+                <div class="relative w-full bg-black" style="height: calc(100vh - 200px); min-height: 600px;">
                     <!-- YouTube Player Container -->
                     <div id="player">
                         <!-- Placeholder content shown before video loads -->
@@ -220,47 +245,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- Drawing Tools Panel (1/4 width on desktop) -->
-            <aside class="bg-white rounded-2xl p-6 shadow-lg h-fit">
-                
-                <!-- Drawing Tools Grid -->
-                <div class="mb-6">
-                    <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Tools</h3>
-                    <div class="flex gap-2 mb-4 overflow-x-auto">
-                        <!-- Pencil Tool (Default Active) -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all active:bg-indigo-500 active:border-indigo-600 active:text-white" id="pencil" title="Free-hand drawing">✏️</button>
-                        
-                        <!-- Line Tool -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="line" title="Draw straight lines">📏</button>
-                        
-                        <!-- Rectangle Tool -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="rectangle" title="Draw rectangles">⬜</button>
-                        
-                        <!-- Circle Tool -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="circle" title="Draw circles">⭕</button>
-                        
-                        <!-- Arrow Tool -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="arrow" title="Draw arrows">➡️</button>
-                        
-                        <!-- Eraser Tool -->
-                        <button class="tool-btn w-12 h-12 flex-shrink-0 border-2 border-gray-200 bg-white rounded-xl cursor-pointer flex items-center justify-center text-xl hover:border-indigo-500 hover:-translate-y-0.5 transition-all" id="eraser" title="Erase drawings">🧽</button>
-                    </div>
-                </div>
-
-                <!-- Customization Controls -->
-                <div class="mb-6">
-                    <h3 class="text-xs text-gray-600 mb-3 uppercase tracking-wider font-medium">Customize</h3>
-                    <div class="flex items-center gap-3">
-                        <!-- Color Picker -->
-                        <input type="color" id="colorPicker" value="#ff0000" class="w-10 h-10 border-none rounded-lg cursor-pointer">
-                        <!-- Brush Size Slider -->
-                        <input type="range" id="brushSize" min="2" max="20" value="4" class="flex-1 h-2 rounded-full bg-gray-200 outline-none cursor-pointer">
-                        <span id="sizeValue" class="text-sm text-gray-600">4px</span>
-                    </div>
-                </div>
-
-            </aside>
         </section>
 
         <!-- Timestamp List Section -->
