@@ -95,9 +95,17 @@ const CanvasUtils = {
         const container = AppState.canvas.parentElement;
         const rect = container.getBoundingClientRect();
         
+        // Save current main canvas content before resize
+        const imageData = AppState.ctx ? AppState.ctx.getImageData(0, 0, AppState.canvas.width, AppState.canvas.height) : null;
+        
         // Resize main canvas
         AppState.canvas.width = rect.width;
         AppState.canvas.height = rect.height;
+        
+        // Restore content after resize
+        if (imageData && AppState.ctx) {
+            AppState.ctx.putImageData(imageData, 0, 0);
+        }
         
         // Resize overlay canvas
         if (AppState.overlayCanvas) {
@@ -120,7 +128,7 @@ const DrawingUtils = {
         const activeCtx = CanvasUtils.getActiveContext();
         if (!activeCtx) return;
         
-        if (AppState.isEraser) {
+        if (AppState.currentTool === 'eraser') {
             activeCtx.globalCompositeOperation = 'destination-out';
             activeCtx.lineWidth = AppState.brushSize * 2;
         } else {
@@ -131,6 +139,27 @@ const DrawingUtils = {
         
         activeCtx.lineCap = 'round';
         activeCtx.lineJoin = 'round';
+        
+        // Update cursor if in drawing mode
+        this.updateCursor();
+    },
+
+    /**
+     * Update cursor based on current tool
+     */
+    updateCursor() {
+        if (!AppState.drawingMode || !AppState.overlayCanvas) return;
+        
+        const cursors = {
+            pencil: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>✏️</text></svg>") 2 20, crosshair',
+            line: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>📏</text></svg>") 12 12, crosshair',
+            rectangle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⬜</text></svg>") 12 12, crosshair',
+            circle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⭕</text></svg>") 12 12, crosshair',
+            arrow: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>➡️</text></svg>") 12 12, crosshair',
+            eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, crosshair'
+        };
+        
+        AppState.overlayCanvas.style.cursor = cursors[AppState.currentTool] || 'crosshair';
     },
 
     /**
@@ -249,6 +278,9 @@ const DrawingMode = {
         btn.textContent = '✏️ Start Drawing';
         btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
         btn.classList.add('bg-green-500', 'hover:bg-green-600');
+        
+        // Reset cursor
+        AppState.overlayCanvas.style.cursor = 'default';
     }
 };
 
@@ -429,10 +461,21 @@ const DrawingEvents = {
         
         CanvasUtils.getActiveCanvas().classList.add('drawing');
         
-        if (AppState.currentTool === 'pencil') {
-            DrawingUtils.updateStyles();
-            CanvasUtils.getActiveContext().beginPath();
-            CanvasUtils.getActiveContext().moveTo(pos.x, pos.y);
+        if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
+            // For pencil/eraser, draw on main canvas to preserve drawings
+            const mainCtx = AppState.ctx;
+            if (AppState.currentTool === 'eraser') {
+                mainCtx.globalCompositeOperation = 'destination-out';
+                mainCtx.lineWidth = AppState.brushSize * 2;
+            } else {
+                mainCtx.globalCompositeOperation = 'source-over';
+                mainCtx.strokeStyle = AppState.currentColor;
+                mainCtx.lineWidth = AppState.brushSize;
+            }
+            mainCtx.lineCap = 'round';
+            mainCtx.lineJoin = 'round';
+            mainCtx.beginPath();
+            mainCtx.moveTo(pos.x, pos.y);
         }
     },
 
@@ -445,9 +488,14 @@ const DrawingEvents = {
         const pos = CanvasUtils.getMousePos(e);
         if (!pos) return;
         
-        if (AppState.currentTool === 'pencil') {
-            CanvasUtils.getActiveContext().lineTo(pos.x, pos.y);
-            CanvasUtils.getActiveContext().stroke();
+        if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
+            // Draw on main canvas to preserve drawings
+            const mainCtx = AppState.ctx;
+            mainCtx.lineTo(pos.x, pos.y);
+            mainCtx.stroke();
+        } else {
+            // Show preview for shape tools
+            this.drawPreview(pos.x, pos.y);
         }
         
         AppState.lastX = pos.x;
@@ -467,24 +515,127 @@ const DrawingEvents = {
         if (!pos) return;
         
         // Draw shapes on mouse up
-        if (AppState.currentTool !== 'pencil') {
-            DrawingUtils.updateStyles();
+        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser') {
+            // Clear preview from overlay
+            AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+            
+            // Switch to main canvas for final drawing
+            const originalContext = CanvasUtils.getActiveContext();
+            const mainCtx = AppState.ctx;
+            
+            // Set styles on main canvas
+            mainCtx.strokeStyle = AppState.currentColor;
+            mainCtx.lineWidth = AppState.brushSize;
+            mainCtx.lineCap = 'round';
+            mainCtx.lineJoin = 'round';
+            mainCtx.globalCompositeOperation = 'source-over';
             
             switch (AppState.currentTool) {
                 case 'line':
-                    DrawingUtils.drawLine(AppState.startX, AppState.startY, pos.x, pos.y);
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(AppState.startX, AppState.startY);
+                    mainCtx.lineTo(pos.x, pos.y);
+                    mainCtx.stroke();
                     break;
                 case 'rectangle':
-                    DrawingUtils.drawRectangle(AppState.startX, AppState.startY, pos.x, pos.y);
+                    const width = pos.x - AppState.startX;
+                    const height = pos.y - AppState.startY;
+                    mainCtx.strokeRect(AppState.startX, AppState.startY, width, height);
                     break;
                 case 'circle':
-                    DrawingUtils.drawCircle(AppState.startX, AppState.startY, pos.x, pos.y);
+                    const radius = Math.sqrt(Math.pow(pos.x - AppState.startX, 2) + Math.pow(pos.y - AppState.startY, 2));
+                    mainCtx.beginPath();
+                    mainCtx.arc(AppState.startX, AppState.startY, radius, 0, Math.PI * 2);
+                    mainCtx.stroke();
                     break;
                 case 'arrow':
-                    DrawingUtils.drawArrow(AppState.startX, AppState.startY, pos.x, pos.y);
+                    const headlen = 15;
+                    const angle = Math.atan2(pos.y - AppState.startY, pos.x - AppState.startX);
+                    
+                    // Main line
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(AppState.startX, AppState.startY);
+                    mainCtx.lineTo(pos.x, pos.y);
+                    mainCtx.stroke();
+                    
+                    // Arrowhead
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(pos.x, pos.y);
+                    mainCtx.lineTo(pos.x - headlen * Math.cos(angle - Math.PI / 6), pos.y - headlen * Math.sin(angle - Math.PI / 6));
+                    mainCtx.moveTo(pos.x, pos.y);
+                    mainCtx.lineTo(pos.x - headlen * Math.cos(angle + Math.PI / 6), pos.y - headlen * Math.sin(angle + Math.PI / 6));
+                    mainCtx.stroke();
                     break;
             }
         }
+    },
+
+    /**
+     * Draw preview for shape tools
+     */
+    drawPreview(currentX, currentY) {
+        if (!AppState.overlayCtx) return;
+        
+        // Clear overlay canvas for preview, but first copy main canvas content to overlay
+        AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+        
+        // Copy main canvas content to overlay so pencil drawings remain visible
+        if (AppState.ctx && AppState.canvas.width > 0 && AppState.canvas.height > 0) {
+            AppState.overlayCtx.drawImage(AppState.canvas, 0, 0);
+        }
+        
+        // Set preview styles
+        AppState.overlayCtx.strokeStyle = AppState.currentColor;
+        AppState.overlayCtx.lineWidth = AppState.brushSize;
+        AppState.overlayCtx.lineCap = 'round';
+        AppState.overlayCtx.lineJoin = 'round';
+        AppState.overlayCtx.globalAlpha = 0.7; // Semi-transparent preview
+        
+        // Draw preview shape
+        switch (AppState.currentTool) {
+            case 'line':
+                AppState.overlayCtx.beginPath();
+                AppState.overlayCtx.moveTo(AppState.startX, AppState.startY);
+                AppState.overlayCtx.lineTo(currentX, currentY);
+                AppState.overlayCtx.stroke();
+                break;
+            case 'rectangle':
+                const width = currentX - AppState.startX;
+                const height = currentY - AppState.startY;
+                AppState.overlayCtx.strokeRect(AppState.startX, AppState.startY, width, height);
+                break;
+            case 'circle':
+                const radius = Math.sqrt(Math.pow(currentX - AppState.startX, 2) + Math.pow(currentY - AppState.startY, 2));
+                AppState.overlayCtx.beginPath();
+                AppState.overlayCtx.arc(AppState.startX, AppState.startY, radius, 0, 2 * Math.PI);
+                AppState.overlayCtx.stroke();
+                break;
+            case 'arrow':
+                this.drawArrowPreview(AppState.startX, AppState.startY, currentX, currentY);
+                break;
+        }
+        
+        // Reset alpha
+        AppState.overlayCtx.globalAlpha = 1.0;
+    },
+
+    /**
+     * Draw arrow preview
+     */
+    drawArrowPreview(startX, startY, endX, endY) {
+        const headLength = 20;
+        const angle = Math.atan2(endY - startY, endX - startX);
+        
+        AppState.overlayCtx.beginPath();
+        // Arrow line
+        AppState.overlayCtx.moveTo(startX, startY);
+        AppState.overlayCtx.lineTo(endX, endY);
+        
+        // Arrow head
+        AppState.overlayCtx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+        AppState.overlayCtx.moveTo(endX, endY);
+        AppState.overlayCtx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+        AppState.overlayCtx.stroke();
     }
 };
 
@@ -579,19 +730,32 @@ const YouTubeManager = {
 // 10. INITIALIZATION
 // =============================================================================
 function init() {
+    console.log('Initializing Tutorial Maker...');
+    
     // Setup canvas elements
     AppState.canvas = document.getElementById('drawingCanvas');
-    AppState.ctx = AppState.canvas.getContext('2d');
+    if (AppState.canvas) {
+        AppState.ctx = AppState.canvas.getContext('2d');
+    }
+    
     AppState.overlayCanvas = document.getElementById('overlayCanvas');
-    AppState.overlayCtx = AppState.overlayCanvas.getContext('2d');
+    if (AppState.overlayCanvas) {
+        AppState.overlayCtx = AppState.overlayCanvas.getContext('2d');
+    }
     
     // Setup event listeners
     setupEventListeners();
     
-    // Initialize drawing styles
+    // Initialize drawing styles and set default tool
+    const pencilBtn = document.getElementById('pencil');
+    if (pencilBtn) {
+        pencilBtn.classList.add('bg-indigo-500', 'border-indigo-600', 'text-white');
+    }
     DrawingUtils.updateStyles();
     
-    console.log('Tutorial Maker initialized');
+    console.log('Tutorial Maker initialized successfully');
+    console.log('Canvas:', AppState.canvas);
+    console.log('Overlay Canvas:', AppState.overlayCanvas);
 }
 
 function setupEventListeners() {
@@ -600,11 +764,18 @@ function setupEventListeners() {
         document.getElementById(tool).addEventListener('click', () => {
             AppState.currentTool = tool;
             AppState.isEraser = (tool === 'eraser');
-            DrawingUtils.updateStyles();
             
             // Update active tool UI
-            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active:bg-indigo-500', 'active:border-indigo-600', 'active:text-white'));
-            document.getElementById(tool).classList.add('active:bg-indigo-500', 'active:border-indigo-600', 'active:text-white');
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-500', 'border-indigo-600', 'text-white');
+                btn.classList.add('bg-white', 'border-gray-200');
+            });
+            
+            const selectedBtn = document.getElementById(tool);
+            selectedBtn.classList.remove('bg-white', 'border-gray-200');
+            selectedBtn.classList.add('bg-indigo-500', 'border-indigo-600', 'text-white');
+            
+            DrawingUtils.updateStyles();
         });
     });
     
@@ -634,34 +805,40 @@ function setupEventListeners() {
     document.getElementById('drawModeBtn').addEventListener('click', () => DrawingMode.toggle());
     document.getElementById('closeDrawingBtn').addEventListener('click', () => DrawingMode.close());
     
-    // Canvas events
-    AppState.overlayCanvas.addEventListener('mousedown', DrawingEvents.start);
-    AppState.overlayCanvas.addEventListener('mousemove', DrawingEvents.draw);
-    AppState.overlayCanvas.addEventListener('mouseup', DrawingEvents.stop);
-    AppState.overlayCanvas.addEventListener('mouseout', DrawingEvents.stop);
-    
-    // Touch events
-    AppState.overlayCanvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const mouseEvent = new MouseEvent('mousedown', {
-            clientX: touch.clientX,
-            clientY: touch.clientY
+    // Canvas events - setup immediately since init() runs after DOM is loaded
+    if (AppState.overlayCanvas) {
+        AppState.overlayCanvas.addEventListener('mousedown', DrawingEvents.start);
+        AppState.overlayCanvas.addEventListener('mousemove', DrawingEvents.draw);
+        AppState.overlayCanvas.addEventListener('mouseup', DrawingEvents.stop);
+        AppState.overlayCanvas.addEventListener('mouseout', DrawingEvents.stop);
+        
+        // Touch events
+        AppState.overlayCanvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            DrawingEvents.start(mouseEvent);
         });
-        AppState.overlayCanvas.dispatchEvent(mouseEvent);
-    }, { passive: false });
-    
-    AppState.overlayCanvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const mouseEvent = new MouseEvent('mousemove', {
-            clientX: touch.clientX,
-            clientY: touch.clientY
+        
+        AppState.overlayCanvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            DrawingEvents.draw(mouseEvent);
         });
-        AppState.overlayCanvas.dispatchEvent(mouseEvent);
-    }, { passive: false });
-    
-    AppState.overlayCanvas.addEventListener('touchend', DrawingEvents.stop);
+        
+        AppState.overlayCanvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            DrawingEvents.stop(mouseEvent);
+        });
+    }
     
     // Video input
     document.getElementById('youtubeUrl').addEventListener('keypress', (e) => {
@@ -678,5 +855,5 @@ function onYouTubeIframeAPIReady() {
     YouTubeManager.onAPIReady();
 }
 
-// Initialize when page loads
-window.addEventListener('load', init);
+// Initialize when DOM is ready
+window.addEventListener('DOMContentLoaded', init);
