@@ -93,7 +93,7 @@ const CanvasUtils = {
         const rect = container.getBoundingClientRect();
         
         // Save current main canvas content before resize
-        const imageData = AppState.ctx ? AppState.ctx.getImageData(0, 0, AppState.canvas.width, AppState.canvas.height) : null;
+        const imageData = AppState.ctx ? AppState.ctx.getImageData(0, 0, AppState.canvas.width, AppState.canvas.height, { willReadFrequently: true }) : null;
         
         // Resize main canvas
         AppState.canvas.width = rect.width;
@@ -646,7 +646,7 @@ const YouTubeManager = {
                 'rel': 0,
                 'controls': 1,
                 'enablejsapi': 1,
-                'origin': window.location.origin
+                'origin': window.location.protocol + '//' + window.location.host
             },
             events: {
                 'onReady': (event) => {
@@ -697,12 +697,12 @@ function init() {
     // Setup canvas elements
     AppState.canvas = document.getElementById('drawingCanvas');
     if (AppState.canvas) {
-        AppState.ctx = AppState.canvas.getContext('2d');
+        AppState.ctx = AppState.canvas.getContext('2d', { willReadFrequently: true });
     }
     
     AppState.overlayCanvas = document.getElementById('overlayCanvas');
     if (AppState.overlayCanvas) {
-        AppState.overlayCtx = AppState.overlayCanvas.getContext('2d');
+        AppState.overlayCtx = AppState.overlayCanvas.getContext('2d', { willReadFrequently: true });
     }
     
     // Setup event listeners
