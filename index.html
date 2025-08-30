@@ -181,14 +181,15 @@
         <!-- Main Workspace: Video Only -->
         <section class="mb-8">
             
-            <!-- Video Player Section (full width) -->
-            <div class="bg-white overflow-hidden shadow-lg">
-                <div class="relative w-full bg-black" style="height: calc(100vh - 200px); min-height: 600px;">
+            <!-- Video Player Section (3/4 width on desktop) -->
+            <div class="lg:col-span-3 bg-white rounded-2xl overflow-hidden shadow-lg w-full lg:w-3/4 mx-auto">
+                <div class="relative w-full aspect-video bg-black">
                     <!-- YouTube Player Container -->
-                    <div id="player">
+                    <div id="player" class="w-full h-full">
                         <!-- Placeholder content shown before video loads -->
                         <div id="videoPlaceholder" class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-lg flex-col gap-4">
                             <div class="text-5xl">🎥</div>
+                            <div>Load a YouTube video to start creating your tutorial</div>
                         </div>
                         
                         <!-- Loading spinner -->
@@ -219,9 +220,10 @@
                             ✕
                         </button>
                         <!-- Transparent Drawing Canvas -->
-                        <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+                        <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
                     </div>
                 </div>
+            </div>
                 
                 <!-- Video Controls Toolbar -->
                 <div class="bg-gray-50 px-4 py-3 border-t">
