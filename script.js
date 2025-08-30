@@ -300,19 +300,23 @@ const TimestampManager = {
             UI.showNotification(`Drawing saved at ${formattedTime}!`);
         }
         
-        // Copy overlay content to main canvas before closing drawing mode
-        if (AppState.overlayCanvas && AppState.canvas) {
+        // If in drawing mode, copy the overlay content to the main canvas before saving
+        if (AppState.drawingMode && AppState.overlayCanvas && AppState.canvas) {
             AppState.ctx.drawImage(AppState.overlayCanvas, 0, 0);
-            AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
         }
-        
-        // Close drawing mode
+
+        // Close drawing mode if it's active
         if (AppState.drawingMode) {
             DrawingMode.close();
         }
-        
-        // Clear main canvas to hide drawing after saving
-        AppState.ctx.clearRect(0, 0, AppState.canvas.width, AppState.canvas.height);
+
+        // Clear the main canvas after a short delay to ensure the drawing is saved
+        // and to prevent it from showing when it shouldn't.
+        setTimeout(() => {
+            if (AppState.ctx) {
+                AppState.ctx.clearRect(0, 0, AppState.canvas.width, AppState.canvas.height);
+            }
+        }, 100);
         
         AppState.currentTimestamp = currentTime;
         AppState.currentDrawingState = null;
@@ -364,6 +368,19 @@ const TimestampManager = {
     /**
      * Delete timestamp
      */
+    checkAndDisplayDrawing(currentTime) {
+        const drawing = AppState.timestampedDrawings.find(d => 
+            currentTime >= d.time && (AppState.timestampedDrawings.find(next => next.time > d.time && next.time > d.time) ? currentTime < AppState.timestampedDrawings.find(next => next.time > d.time).time : true)
+        );
+
+        if (drawing && AppState.currentTimestamp !== drawing.time) {
+            this.loadDrawing(drawing.drawingData, drawing.time);
+        } else if (!drawing && AppState.currentTimestamp !== null) {
+            CanvasUtils.clear();
+            AppState.currentTimestamp = null;
+        }
+    },
+
     delete(id) {
         AppState.timestampedDrawings = AppState.timestampedDrawings.filter(d => d.id !== id);
         this.updateUI();
@@ -857,7 +874,17 @@ const YouTubeManager = {
                     UI.showNotification('Video loaded successfully!');
                 },
                 'onStateChange': (event) => {
-                    console.log('Player state changed:', event.data);
+                    if (event.data === YT.PlayerState.PLAYING) {
+                        // Start an interval to check the time and display drawings
+                        if (this.timeUpdateInterval) clearInterval(this.timeUpdateInterval);
+                        this.timeUpdateInterval = setInterval(() => {
+                            const currentTime = AppState.player.getCurrentTime();
+                            TimestampManager.checkAndDisplayDrawing(currentTime);
+                        }, 250); // Check every 250ms
+                    } else {
+                        // Clear the interval when video is not playing
+                        if (this.timeUpdateInterval) clearInterval(this.timeUpdateInterval);
+                    }
                 },
                 'onError': (event) => {
                     console.error('YouTube Player Error:', event.data);
