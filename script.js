@@ -285,14 +285,15 @@ const TimestampManager = {
             UI.showNotification(`Drawing updated at ${formattedTime}!`);
         } else {
             // Create new
-            AppState.timestampedDrawings.push({
+            frame_data =  {
                 id: Date.now(),
                 time: currentTime,
                 timeFormatted: TimeUtils.format(currentTime),
                 drawingData: drawingData,
                 created: new Date().toLocaleString(),
                 videoTimestamp: formattedTime
-            });
+            }
+            AppState.timestampedDrawings.push(frame_data);
             UI.showNotification(`Drawing saved at ${formattedTime}!`);
         }
         

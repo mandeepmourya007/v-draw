@@ -178,85 +178,62 @@
         </button>
     </div>
 </section>
-        <!-- Main Workspace: Video Only -->
-        <section class="mb-8">
-            
-            <!-- Video Player Section (3/4 width on desktop) -->
-            <div class="lg:col-span-3 bg-white rounded-2xl overflow-hidden shadow-lg w-full lg:w-3/4 mx-auto">
-                <div class="relative w-full aspect-video bg-black">
-                    <!-- YouTube Player Container -->
-                    <div id="player" class="w-full h-full">
-                        <!-- Placeholder content shown before video loads -->
-                        <div id="videoPlaceholder" class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-lg flex-col gap-4">
-                            <div class="text-5xl">🎥</div>
-                            <div>Load a YouTube video to start creating your tutorial</div>
-                        </div>
-                        
-                        <!-- Loading spinner -->
-                        <div id="videoLoader" class="hidden flex items-center justify-center h-full bg-gray-100 text-gray-600 text-lg flex-col gap-4">
-                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-                            <div>Loading video...</div>
-                        </div>
-                        
-                        <!-- Error message -->
-                        <div id="videoError" class="hidden flex items-center justify-center h-full bg-red-50 text-red-600 text-lg flex-col gap-4">
-                            <div class="text-5xl">❌</div>
-                            <div class="text-center">
-                                <div class="font-semibold mb-2">Failed to load video</div>
-                                <div class="text-sm" id="errorMessage">Please check the URL and try again</div>
-                            </div>
-                            <button id="retryButton" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-                                Try Again
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Drawing canvas overlay -->
-                    <canvas id="drawingCanvas" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
-                    
-                    <!-- Drawing Mode Overlay -->
-                    <div id="drawingOverlay" class="absolute top-0 left-0 w-full h-full hidden z-20">
-                        <!-- Close Button -->
-                        <button id="closeDrawingBtn" class="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-30 flex items-center justify-center text-lg font-bold">
-                            ✕
-                        </button>
-                        <!-- Transparent Drawing Canvas -->
-                        <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
-                    </div>
-                </div>
-            </div>
-                
-                <!-- Video Controls Toolbar -->
-                <div class="bg-gray-50 px-4 py-3 border-t">
-                    <div class="flex items-center justify-center">
-                        <div class="text-sm text-gray-600">
-                            <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Action Bar -->
-                <div class="bg-white px-4 py-3 border-t flex items-center justify-center gap-3">
-                    <button id="drawModeBtn" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors">
-                        ✏️ Start Drawing
-                    </button>
-                    <button id="saveWithTimestamp" class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600 transition-colors">
-                        ⏰ Save at Time
-                    </button>
-                    <button id="clearCanvas" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors">
-                        🗑️ Clear All
-                    </button>
-                </div>
-            </div>
-        </section>
+        <!-- Main Workspace: Video and Timestamps -->
+        <section class="flex flex-col lg:flex-row gap-8 mb-8">
 
-        <!-- Timestamp List Section -->
-        <section class="mt-8 bg-white rounded-2xl p-6 shadow-lg">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800">📋 Saved Drawings Timeline</h2>
-            <div id="timestampList" class="space-y-2">
-                <p class="text-gray-500 text-sm">No drawings saved yet. Use "⏰ Save at Time" to create timestamped drawings.</p>
+            <!-- Left Column: Video Player and Controls -->
+            <div class="w-full lg:w-3/4">
+                <div class="bg-white rounded-2xl overflow-hidden shadow-lg">
+                    <!-- Video Player -->
+                    <div class="relative w-full aspect-video bg-black">
+                        <div id="player" class="w-full h-full">
+                            <!-- Placeholder, Loader, and Error Messages -->
+                            <div id="videoPlaceholder" class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-lg flex-col gap-4">
+                                <div class="text-5xl">🎥</div>
+                                <div>Load a YouTube video to start creating your tutorial</div>
+                            </div>
+                            <div id="videoLoader" class="hidden flex items-center justify-center h-full bg-gray-100 text-gray-600 text-lg flex-col gap-4">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+                                <div>Loading video...</div>
+                            </div>
+                            <div id="videoError" class="hidden flex items-center justify-center h-full bg-red-50 text-red-600 text-lg flex-col gap-4">
+                                <div class="text-5xl">❌</div>
+                                <div class="text-center">
+                                    <div class="font-semibold mb-2">Failed to load video</div>
+                                    <div class="text-sm" id="errorMessage">Please check the URL and try again</div>
+                                </div>
+                                <button id="retryButton" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Try Again</button>
+                            </div>
+                        </div>
+                        <!-- Drawing Canvases -->
+                        <canvas id="drawingCanvas" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                        <div id="drawingOverlay" class="absolute top-0 left-0 w-full h-full hidden z-20">
+                            <button id="closeDrawingBtn" class="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-30 flex items-center justify-center text-lg font-bold">✕</button>
+                            <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
+                        </div>
+                    </div>
+                    <!-- Video Controls -->
+                    <div class="bg-gray-50 px-4 py-3 border-t">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600"><span id="currentTime">0:00</span> / <span id="totalTime">0:00</span></div>
+                            <div class="flex items-center gap-2">
+                                <button id="drawModeBtn" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600">✏️ Start Drawing</button>
+                                <button id="saveWithTimestamp" class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600">⏰ Save at Time</button>
+                                <button id="clearCanvas" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600">🗑️ Clear All</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </section>
-    </main>
+
+            <!-- Right Column: Timestamped Drawings -->
+            <div class="w-full lg:w-1/4 bg-white rounded-2xl shadow-lg flex flex-col" style="max-height: 80vh;">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 p-6 pb-0 flex-shrink-0">⏰ Saved Drawings Timeline</h2>
+                <div id="timestampList" class="space-y-3 flex-grow overflow-y-auto p-6 pt-4">
+                    <p class="text-gray-500 text-sm">No drawings saved yet. Use "⏰ Save at Time" to create timestamped drawings.</p>
+                </div>
+            </div>
+    </section>
 
     <!-- External Scripts -->
     <!-- YouTube IFrame API for video player -->
