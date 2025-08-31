@@ -20,7 +20,7 @@ const AppState = {
     infiniteCtx: null,
     
     // A4 Page Management
-    a4WidthPercent: 100, // A4 width as percentage of screen width
+    a4WidthPercent: 95, // A4 width as percentage of screen width
     a4HeightPercent: 100, // A4 height as percentage of screen height
     infiniteHorizontal: false, // Toggle for infinite horizontal expansion
     
