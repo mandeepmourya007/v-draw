@@ -84,9 +84,13 @@
                     <button id="infiniteCanvasClear" class="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors">
                         🗑️ Clear
                     </button>
+                    <button id="uploadFile" class="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors">
+                        📁 Upload
+                    </button>
                     <button id="infiniteCanvasSave" class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors">
                         💾 Save
                     </button>
+                    <input type="file" id="fileInput" accept="image/*,.pdf" style="display: none;">
                 </div>
             </div>
             <div id="infiniteCanvasContainer" class="relative bg-gray-100" style="height: 400px; overflow-y: scroll; overflow-x: auto;">
@@ -273,8 +277,14 @@
     <!-- External Scripts -->
     <!-- YouTube IFrame API for video player -->
     <script src="https://www.youtube.com/iframe_api"></script>
-    <!-- Main application JavaScript -->
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
     <script src="script.js"></script>
-    
 </body>
 </html>

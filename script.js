@@ -1070,6 +1070,126 @@ const InfiniteCanvas = {
         document.getElementById('infiniteCanvasClear')?.addEventListener('click', () => this.clear());
         document.getElementById('infiniteCanvasSave')?.addEventListener('click', () => this.save());
         document.getElementById('toggleHorizontal')?.addEventListener('click', () => this.toggleHorizontalExpansion());
+        document.getElementById('uploadFile')?.addEventListener('click', () => this.triggerFileUpload());
+    },
+
+    /**
+     * Trigger file upload dialog
+     */
+    triggerFileUpload() {
+        const fileInput = document.getElementById('fileInput');
+        fileInput.click();
+        
+        // Add event listener for file selection
+        fileInput.onchange = (e) => this.handleFileUpload(e);
+    },
+
+    /**
+     * Handle file upload (images and PDFs)
+     */
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const fileType = file.type;
+        
+        if (fileType.startsWith('image/')) {
+            this.loadImage(file);
+        } else if (fileType === 'application/pdf') {
+            this.loadPDF(file);
+        } else {
+            UI.showNotification('Please select an image or PDF file');
+        }
+        
+        // Clear the input so the same file can be selected again
+        event.target.value = '';
+    },
+
+    /**
+     * Load and display image on canvas
+     */
+    loadImage(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const ctx = AppState.infiniteCtx;
+                
+                // Calculate position to place image (top-left of current view)
+                const container = document.getElementById('infiniteCanvasContainer');
+                const scrollTop = container.scrollTop;
+                const scrollLeft = container.scrollLeft;
+                
+                // Draw image at scroll position with original size
+                ctx.drawImage(img, scrollLeft + 20, scrollTop + 20);
+                
+                // Expand canvas if needed
+                this.expandCanvasIfNeeded(scrollLeft + img.width + 40, scrollTop + img.height + 40);
+                
+                UI.showNotification(`Image loaded: ${file.name}`);
+                
+                // Auto-save after loading
+                setTimeout(() => StorageManager.saveData(), 100);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    },
+
+    /**
+     * Load and display PDF on canvas (first page only)
+     */
+    loadPDF(file) {
+        if (typeof pdfjsLib === 'undefined') {
+            UI.showNotification('PDF.js library not loaded. Please refresh the page.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const typedArray = new Uint8Array(e.target.result);
+                const pdf = await pdfjsLib.getDocument(typedArray).promise;
+                
+                // Get first page
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 1.5 });
+                
+                // Create temporary canvas for PDF rendering
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = viewport.width;
+                tempCanvas.height = viewport.height;
+                
+                // Render PDF page to temporary canvas
+                await page.render({
+                    canvasContext: tempCtx,
+                    viewport: viewport
+                }).promise;
+                
+                // Draw the rendered PDF to infinite canvas
+                const ctx = AppState.infiniteCtx;
+                const container = document.getElementById('infiniteCanvasContainer');
+                const scrollTop = container.scrollTop;
+                const scrollLeft = container.scrollLeft;
+                
+                // Draw PDF at scroll position
+                ctx.drawImage(tempCanvas, scrollLeft + 20, scrollTop + 20);
+                
+                // Expand canvas if needed
+                this.expandCanvasIfNeeded(scrollLeft + viewport.width + 40, scrollTop + viewport.height + 40);
+                
+                UI.showNotification(`PDF loaded: ${file.name} (Page 1 of ${pdf.numPages})`);
+                
+                // Auto-save after loading
+                setTimeout(() => StorageManager.saveData(), 100);
+                
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                UI.showNotification('Failed to load PDF. Please try again.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
     },
 
     /**
