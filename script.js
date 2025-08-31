@@ -1103,6 +1103,12 @@ const MediaHandler = {
             mediaObj.element.style.top = y + 'px';
         }
 
+        // Update associated label for PDF pages
+        if (mediaObj.type === 'pdf-page' && mediaObj.label) {
+            mediaObj.label.style.left = x + 'px';
+            mediaObj.label.style.top = (y - 20) + 'px';
+        }
+
         // Update resize handles if selected
         if (this.selectedMedia === mediaObj) {
             this.showResizeHandles(mediaObj);
@@ -1122,6 +1128,12 @@ const MediaHandler = {
         if (mediaObj.element) {
             mediaObj.element.style.width = width + 'px';
             mediaObj.element.style.height = height + 'px';
+            
+            // For PDF pages, we need to scale the content, not change canvas dimensions
+            if (mediaObj.type === 'pdf-page') {
+                // Don't change canvas internal dimensions, just CSS scaling
+                // The canvas content will be scaled automatically by CSS
+            }
         }
 
         // Update resize handles if selected
@@ -1141,6 +1153,11 @@ const MediaHandler = {
             
             if (mediaObj.element) {
                 mediaObj.element.remove();
+            }
+            
+            // Remove associated label for PDF pages
+            if (mediaObj.type === 'pdf-page' && mediaObj.label) {
+                mediaObj.label.remove();
             }
             
             if (this.selectedMedia === mediaObj) {
@@ -1986,7 +2003,7 @@ const InfiniteCanvas = {
                 // Hide page controls since we show all pages
                 this.hidePageControls();
                 
-                UI.showNotification(`PDF loaded: ${file.name} (${pdf.numPages} pages)`);
+                UI.showNotification(`PDF loaded: ${file.name} (${pdf.numPages} pages) - Use Select tool (👆) to move/resize pages`);
                 
                 // Auto-save after loading
                 setTimeout(() => StorageManager.saveData(), 100);
@@ -2006,12 +2023,12 @@ const InfiniteCanvas = {
         if (!AppState.currentPDF) return;
 
         try {
-            const ctx = AppState.infiniteCtx;
+            const container = document.getElementById('infiniteCanvasContainer');
             let currentY = AppState.lastUploadPosition.y;
             const startX = AppState.lastUploadPosition.x;
             let maxWidth = 0;
             
-            // Render each page vertically
+            // Render each page vertically as interactive elements
             for (let pageNum = 1; pageNum <= AppState.totalPages; pageNum++) {
                 const page = await AppState.currentPDF.getPage(pageNum);
                 const viewport = page.getViewport({ scale: 1.5 });
@@ -2028,13 +2045,59 @@ const InfiniteCanvas = {
                     viewport: viewport
                 }).promise;
                 
-                // Draw page number label
-                ctx.fillStyle = '#666';
-                ctx.font = '14px Arial';
-                ctx.fillText(`Page ${pageNum}`, startX, currentY - 5);
+                // Create page label
+                const pageLabel = document.createElement('div');
+                pageLabel.textContent = `Page ${pageNum}`;
+                pageLabel.style.cssText = `
+                    position: absolute;
+                    left: ${startX}px;
+                    top: ${currentY - 20}px;
+                    font-size: 14px;
+                    color: #666;
+                    font-family: Arial;
+                    z-index: 40;
+                    pointer-events: none;
+                `;
+                container.appendChild(pageLabel);
                 
-                // Draw PDF page at current position
-                ctx.drawImage(tempCanvas, startX, currentY);
+                // Create interactive PDF page element
+                const pdfPageElement = document.createElement('canvas');
+                pdfPageElement.width = viewport.width;
+                pdfPageElement.height = viewport.height;
+                pdfPageElement.style.cssText = `
+                    position: absolute;
+                    left: ${startX}px;
+                    top: ${currentY}px;
+                    width: ${viewport.width}px;
+                    height: ${viewport.height}px;
+                    z-index: 50;
+                    user-select: none;
+                    pointer-events: auto;
+                    border: 1px solid #ddd;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                `;
+                
+                // Draw PDF content to the page element
+                const pageCtx = pdfPageElement.getContext('2d');
+                pageCtx.drawImage(tempCanvas, 0, 0);
+                
+                // Add to canvas container
+                container.appendChild(pdfPageElement);
+                
+                // Register with MediaHandler for interaction
+                const mediaObj = MediaHandler.addMediaObject({
+                    type: 'pdf-page',
+                    x: startX,
+                    y: currentY,
+                    width: viewport.width,
+                    height: viewport.height,
+                    originalWidth: viewport.width,
+                    originalHeight: viewport.height,
+                    element: pdfPageElement,
+                    canvas: 'infinite',
+                    pageNumber: pageNum,
+                    label: pageLabel
+                });
                 
                 // Update position for next page (add some spacing)
                 currentY += viewport.height + 30;
