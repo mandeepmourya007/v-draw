@@ -2114,10 +2114,53 @@ function setupEventListeners() {
     });
     
     document.getElementById('clearStorage')?.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all saved data? This cannot be undone.')) {
+        if (confirm('Are you sure you want to clear all data? This will clear:\n• All saved drawings timeline\n• Video canvas drawings\n• Infinite canvas drawings\n• All stored data\n\nThis cannot be undone.')) {
+            // Clear all canvases
+            if (AppState.ctx && AppState.canvas) {
+                AppState.ctx.clearRect(0, 0, AppState.canvas.width, AppState.canvas.height);
+            }
+            if (AppState.overlayCtx && AppState.overlayCanvas) {
+                AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+            }
+            if (AppState.infiniteCtx && AppState.infiniteCanvas) {
+                AppState.infiniteCtx.clearRect(0, 0, AppState.infiniteCanvas.width, AppState.infiniteCanvas.height);
+                // Redraw page separators for infinite canvas
+                InfiniteCanvas.drawPageSeparators();
+            }
+            
+            // Reset all drawing state
+            AppState.isDrawing = false;
+            AppState.drawingMode = false;
+            AppState.infiniteDrawing = false;
+            AppState.startX = 0;
+            AppState.startY = 0;
+            
+            // Reset text state
+            AppState.isTyping = false;
+            AppState.currentTextInput = null;
+            
+            // Clear timestamped drawings and reset timestamp state
+            AppState.timestampedDrawings = [];
+            AppState.currentTimestamp = null;
+            AppState.currentDrawingState = null;
+            TimestampManager.updateUI();
+            
+            // Reset PDF state
+            AppState.currentPDF = null;
+            AppState.currentPage = 1;
+            AppState.totalPages = 1;
+            AppState.lastUploadPosition = { x: 0, y: 0 };
+            InfiniteCanvas.hidePageControls();
+            
+            // Close drawing mode if active
+            if (AppState.drawingMode) {
+                DrawingMode.close();
+            }
+            
+            // Clear all stored data
             StorageManager.clearData();
-            // Refresh the page to reset everything
-            setTimeout(() => location.reload(), 1000);
+            
+            UI.showNotification('All data cleared successfully!');
         }
     });
     
