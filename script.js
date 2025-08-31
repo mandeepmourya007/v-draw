@@ -1626,7 +1626,7 @@ const InfiniteCanvas = {
             AppState.currentInfiniteLaserStroke = {
                 points: [{x: pos.x, y: pos.y}],
                 color: AppState.currentColor,
-                width: AppState.brushSize * 0.8,
+                width: AppState.brushSize * 1.5,
                 shadowBlur: 10,
                 canvas: 'infinite'
             };
@@ -1649,7 +1649,7 @@ const InfiniteCanvas = {
             AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
             AppState.infiniteLaserCtx.globalCompositeOperation = 'source-over';
             AppState.infiniteLaserCtx.strokeStyle = AppState.currentColor + '80';
-            AppState.infiniteLaserCtx.lineWidth = AppState.brushSize * 0.8;
+            AppState.infiniteLaserCtx.lineWidth = AppState.brushSize * 1.5;
             AppState.infiniteLaserCtx.shadowBlur = 10;
             AppState.infiniteLaserCtx.shadowColor = AppState.currentColor;
             AppState.infiniteLaserCtx.lineCap = 'round';
