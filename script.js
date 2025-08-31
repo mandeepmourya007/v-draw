@@ -1454,8 +1454,8 @@ const DrawingEvents = {
         this.removeTextInput();
         
         // Create text input element
-        const textInput = document.createElement('input');
-        textInput.type = 'text';
+        const textInput = document.createElement('textarea');
+        textInput.rows = 3;
         textInput.style.position = 'fixed';
         textInput.style.backgroundColor = 'white';
         textInput.style.border = '2px solid #3b82f6';
@@ -1468,6 +1468,7 @@ const DrawingEvents = {
         textInput.style.fontFamily = AppState.fontFamily;
         textInput.style.color = AppState.currentColor;
         textInput.style.minWidth = '150px';
+        textInput.style.resize = 'none';
         textInput.style.height = 'auto';
         textInput.placeholder = 'Type text...';
         textInput.autocomplete = 'off';
@@ -1509,12 +1510,14 @@ const DrawingEvents = {
         // Event listeners
         textInput.addEventListener('blur', completeText);
         textInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                // Ctrl+Enter completes the text
                 e.preventDefault();
                 completeText();
             } else if (e.key === 'Escape') {
                 this.removeTextInput();
             }
+            // Regular Enter creates new line (default textarea behavior)
         });
     },
 
@@ -1528,18 +1531,20 @@ const DrawingEvents = {
             mainCtx.font = `${AppState.fontSize}px ${AppState.fontFamily}`;
             mainCtx.fillStyle = AppState.currentColor;
             mainCtx.textBaseline = 'top';
-            mainCtx.fillText(text, x, y);
+            
+            // Split text into lines and draw each line
+            const lines = text.split('\n');
+            const lineHeight = AppState.fontSize * 1.2; // 1.2 line spacing
+            
+            lines.forEach((line, index) => {
+                mainCtx.fillText(line, x, y + (index * lineHeight));
+            });
         }
         
-        // If in drawing mode, also draw on overlay for immediate visibility
-        if (AppState.drawingMode && AppState.overlayCtx) {
-            AppState.overlayCtx.font = `${AppState.fontSize}px ${AppState.fontFamily}`;
-            AppState.overlayCtx.fillStyle = AppState.currentColor;
-            AppState.overlayCtx.textBaseline = 'top';
-            AppState.overlayCtx.fillText(text, x, y);
-        }
+        // Don't draw on overlay - it gets cleared by preview system
+        // Text is already drawn on main canvas and will be copied to overlay when needed
         
-        console.log(`Drawing text: "${text}" at (${x}, ${y}) with font ${AppState.fontSize}px ${AppState.fontFamily}`);
+        console.log(`Drawing multi-line text: "${text}" at (${x}, ${y}) with font ${AppState.fontSize}px ${AppState.fontFamily}`);
     },
 
     /**
@@ -2663,8 +2668,8 @@ const InfiniteCanvas = {
         DrawingEvents.removeTextInput();
         
         // Create text input element
-        const textInput = document.createElement('input');
-        textInput.type = 'text';
+        const textInput = document.createElement('textarea');
+        textInput.rows = 3;
         textInput.style.position = 'fixed';
         textInput.style.backgroundColor = 'white';
         textInput.style.border = '2px solid #3b82f6';
@@ -2677,6 +2682,7 @@ const InfiniteCanvas = {
         textInput.style.fontFamily = AppState.fontFamily;
         textInput.style.color = AppState.currentColor;
         textInput.style.minWidth = '150px';
+        textInput.style.resize = 'none';
         textInput.style.height = 'auto';
         textInput.placeholder = 'Type text...';
         textInput.autocomplete = 'off';
@@ -2717,12 +2723,14 @@ const InfiniteCanvas = {
         // Event listeners
         textInput.addEventListener('blur', completeText);
         textInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                // Ctrl+Enter completes the text
                 e.preventDefault();
                 completeText();
             } else if (e.key === 'Escape') {
                 DrawingEvents.removeTextInput();
             }
+            // Regular Enter creates new line (default textarea behavior)
         });
     },
 
@@ -2740,8 +2748,13 @@ const InfiniteCanvas = {
         AppState.infiniteCtx.fillStyle = AppState.currentColor;
         AppState.infiniteCtx.textBaseline = 'top';
         
-        // Draw text
-        AppState.infiniteCtx.fillText(text, x, y);
+        // Split text into lines and draw each line
+        const lines = text.split('\n');
+        const lineHeight = AppState.fontSize * 1.2; // 1.2 line spacing
+        
+        lines.forEach((line, index) => {
+            AppState.infiniteCtx.fillText(line, x, y + (index * lineHeight));
+        });
         
         console.log(`Drew text "${text}" on infinite canvas at (${x}, ${y}) with font ${AppState.fontSize}px ${AppState.fontFamily}`);
     }
