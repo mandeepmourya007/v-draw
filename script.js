@@ -1822,6 +1822,18 @@ function setupEventListeners() {
     document.getElementById('drawModeBtn').addEventListener('click', () => DrawingMode.toggle());
     document.getElementById('closeDrawingBtn').addEventListener('click', () => DrawingMode.close());
     
+    // Paste URL button
+    document.getElementById('pasteUrl').addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            document.getElementById('youtubeUrl').value = text;
+            UI.showNotification('URL pasted from clipboard!');
+        } catch (err) {
+            UI.showNotification('Failed to paste from clipboard. Please paste manually.');
+            console.error('Clipboard access failed:', err);
+        }
+    });
+    
     // Canvas events - setup immediately since init() runs after DOM is loaded
     if (AppState.overlayCanvas) {
         AppState.overlayCanvas.addEventListener('mousedown', DrawingEvents.start);
