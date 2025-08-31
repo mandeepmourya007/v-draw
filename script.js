@@ -1138,6 +1138,7 @@ const InfiniteCanvas = {
         AppState.infiniteCanvas.classList.add('drawing');
         
         if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
+            this.updateStyles(); // Apply correct styles before drawing
             AppState.infiniteCtx.beginPath();
             AppState.infiniteCtx.moveTo(pos.x, pos.y);
         }
