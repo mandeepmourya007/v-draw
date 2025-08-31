@@ -73,11 +73,136 @@ const AppState = {
     lastUploadPosition: {   // Last position where content was uploaded
         x: 0,               // X coordinate
         y: 0                // Y coordinate
+    },
+    
+        // Laser Tool State
+    laserStrokes: [],       // Array to store laser strokes for fade animation
+    laserAnimationId: null, // Animation frame ID for laser fade effect
+    infiniteLaserCanvas: null, // Temporary canvas for infinite canvas laser strokes
+    infiniteLaserCtx: null  // Context for infinite canvas laser overlay
+};
+
+// =============================================================================
+// 2. LASER FADE UTILITIES
+// =============================================================================
+
+/**
+ * @namespace LaserUtils
+ * @description Handles laser tool fade-out effects
+ */
+const LaserUtils = {
+    /**
+     * Add a laser stroke to the fade animation queue
+     * @param {Object} stroke - The laser stroke data
+     */
+    addLaserStroke(stroke) {
+        const laserStroke = {
+            ...stroke,
+            opacity: 1.0,
+            createdAt: Date.now(),
+            fadeStartTime: Date.now() + 500 // Start fading after 1 second
+        };
+        
+        AppState.laserStrokes.push(laserStroke);
+        
+        // Start animation if not already running
+        if (!AppState.laserAnimationId) {
+            this.startFadeAnimation();
+        }
+    },
+    
+    /**
+     * Start the laser fade animation loop
+     */
+    startFadeAnimation() {
+        const animate = () => {
+            const now = Date.now();
+            let hasActiveStrokes = false;
+            
+            // Update opacity for each laser stroke
+            AppState.laserStrokes.forEach(stroke => {
+                if (now > stroke.fadeStartTime) {
+                    const fadeProgress = (now - stroke.fadeStartTime) / 2000; // 2 second fade
+                    stroke.opacity = Math.max(0, 1 - fadeProgress);
+                }
+                if (stroke.opacity > 0) {
+                    hasActiveStrokes = true;
+                }
+            });
+            
+            // Remove fully faded strokes
+            AppState.laserStrokes = AppState.laserStrokes.filter(stroke => stroke.opacity > 0);
+            
+            // Redraw canvas with fading laser strokes
+            this.redrawWithLaserFade();
+            
+            if (hasActiveStrokes) {
+                AppState.laserAnimationId = requestAnimationFrame(animate);
+            } else {
+                AppState.laserAnimationId = null;
+            }
+        };
+        
+        AppState.laserAnimationId = requestAnimationFrame(animate);
+    },
+    
+    /**
+     * Redraw canvas with fading laser strokes
+     */
+    redrawWithLaserFade() {
+        // Clear overlay canvas and redraw all active laser strokes with current opacity
+        if (AppState.overlayCtx) {
+            AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+            
+            AppState.laserStrokes.forEach(stroke => {
+                if (stroke.canvas === 'overlay' && stroke.opacity > 0) {
+                    this.drawFadingStroke(AppState.overlayCtx, stroke);
+                }
+            });
+        }
+        
+        // For infinite canvas - draw fading strokes on laser overlay
+        if (AppState.infiniteLaserCtx && AppState.laserStrokes.some(s => s.canvas === 'infinite' && s.opacity > 0)) {
+            // Clear laser overlay and redraw fading strokes
+            AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
+            
+            AppState.laserStrokes.forEach(stroke => {
+                if (stroke.canvas === 'infinite' && stroke.opacity > 0) {
+                    this.drawFadingStroke(AppState.infiniteLaserCtx, stroke);
+                }
+            });
+        }
+    },
+    
+    /**
+     * Draw a single fading laser stroke
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} stroke - Stroke data with opacity
+     */
+    drawFadingStroke(ctx, stroke) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = stroke.color + Math.floor(stroke.opacity * 128).toString(16).padStart(2, '0');
+        ctx.lineWidth = stroke.width;
+        ctx.shadowBlur = stroke.shadowBlur * stroke.opacity;
+        ctx.shadowColor = stroke.color;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        if (stroke.points && stroke.points.length > 1) {
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            for (let i = 1; i < stroke.points.length; i++) {
+                ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 };
 
 // =============================================================================
-// 2. CANVAS UTILITIES
+// 3. CANVAS UTILITIES
 // =============================================================================
 
 /**
@@ -191,10 +316,17 @@ const DrawingUtils = {
         if (AppState.currentTool === 'eraser') {
             activeCtx.globalCompositeOperation = 'destination-out';
             activeCtx.lineWidth = AppState.brushSize * 2;
+        } else if (AppState.currentTool === 'laser') {
+            activeCtx.globalCompositeOperation = 'source-over';
+            activeCtx.strokeStyle = AppState.currentColor + '80'; // 50% transparency
+            activeCtx.lineWidth = AppState.brushSize * 0.8;
+            activeCtx.shadowBlur = 10;
+            activeCtx.shadowColor = AppState.currentColor;
         } else {
             activeCtx.globalCompositeOperation = 'source-over';
             activeCtx.strokeStyle = AppState.currentColor;
             activeCtx.lineWidth = AppState.brushSize;
+            activeCtx.shadowBlur = 0;
         }
         
         activeCtx.lineCap = 'round';
@@ -219,6 +351,7 @@ const DrawingUtils = {
             circle: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>⭕</text></svg>") 12 12, default',
             arrow: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>➡️</text></svg>") 12 12, default',
             eraser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 12 12, default',
+            laser: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><circle cx=\'12\' cy=\'12\' r=\'4\' fill=\'red\' opacity=\'0.8\'><animate attributeName=\'r\' values=\'3;5;3\' dur=\'1s\' repeatCount=\'indefinite\'/></circle></svg>") 12 12, crosshair',
             text: 'text'
         };
         
@@ -537,11 +670,33 @@ const DrawingEvents = {
                 mainCtx.globalCompositeOperation = 'source-over';
                 mainCtx.strokeStyle = AppState.currentColor;
                 mainCtx.lineWidth = AppState.brushSize;
+                mainCtx.shadowBlur = 0;
             }
             mainCtx.lineCap = 'round';
             mainCtx.lineJoin = 'round';
             mainCtx.beginPath();
             mainCtx.moveTo(pos.x, pos.y);
+        } else if (AppState.currentTool === 'laser') {
+            // For laser tool, initialize stroke data and draw on overlay only
+            AppState.currentLaserStroke = {
+                points: [{x: pos.x, y: pos.y}],
+                color: AppState.currentColor,
+                width: AppState.brushSize * 1.5,
+                shadowBlur: 10,
+                canvas: AppState.drawingMode ? 'overlay' : 'main'
+            };
+            
+            // Draw laser on overlay canvas for temporary effect
+            const overlayCtx = AppState.overlayCtx;
+            overlayCtx.globalCompositeOperation = 'source-over';
+            overlayCtx.strokeStyle = AppState.currentColor + '80';
+            overlayCtx.lineWidth = AppState.brushSize * 1.5;
+            overlayCtx.shadowBlur = 10;
+            overlayCtx.shadowColor = AppState.currentColor;
+            overlayCtx.lineCap = 'round';
+            overlayCtx.lineJoin = 'round';
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(pos.x, pos.y);
         }
     },
 
@@ -559,6 +714,16 @@ const DrawingEvents = {
             const mainCtx = AppState.ctx;
             mainCtx.lineTo(pos.x, pos.y);
             mainCtx.stroke();
+        } else if (AppState.currentTool === 'laser') {
+            // For laser tool, add point to current stroke and draw on overlay
+            if (AppState.currentLaserStroke) {
+                AppState.currentLaserStroke.points.push({x: pos.x, y: pos.y});
+            }
+            
+            // Draw on overlay canvas for temporary effect
+            const overlayCtx = AppState.overlayCtx;
+            overlayCtx.lineTo(pos.x, pos.y);
+            overlayCtx.stroke();
         } else {
             // Show preview for shape tools
             this.drawPreview(pos.x, pos.y);
@@ -577,8 +742,21 @@ const DrawingEvents = {
         const pos = CanvasUtils.getMousePos(e);
         if (!pos) return;
         
+        // Handle laser stroke completion
+        if (AppState.currentTool === 'laser' && AppState.currentLaserStroke) {
+            // Add final point and trigger fade effect
+            AppState.currentLaserStroke.points.push({x: pos.x, y: pos.y});
+            LaserUtils.addLaserStroke(AppState.currentLaserStroke);
+            AppState.currentLaserStroke = null;
+            
+            // Clear the overlay canvas immediately to remove the temporary laser stroke
+            if (AppState.overlayCtx) {
+                AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
+            }
+        }
+        
         // Draw shapes on mouse up
-        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser') {
+        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser' && AppState.currentTool !== 'laser') {
             // Clear preview from overlay
             AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
             
@@ -1442,6 +1620,40 @@ const InfiniteCanvas = {
             this.updateStyles(); // Apply correct styles before drawing
             AppState.infiniteCtx.beginPath();
             AppState.infiniteCtx.moveTo(pos.x, pos.y);
+        } else if (AppState.currentTool === 'laser') {
+            // For laser tool, initialize stroke data and use temporary overlay
+            AppState.currentInfiniteLaserStroke = {
+                points: [{x: pos.x, y: pos.y}],
+                color: AppState.currentColor,
+                width: AppState.brushSize * 0.8,
+                shadowBlur: 10,
+                canvas: 'infinite'
+            };
+            
+            // Create temporary laser overlay if it doesn't exist
+            if (!AppState.infiniteLaserCanvas) {
+                AppState.infiniteLaserCanvas = document.createElement('canvas');
+                AppState.infiniteLaserCanvas.width = AppState.infiniteCanvas.width;
+                AppState.infiniteLaserCanvas.height = AppState.infiniteCanvas.height;
+                AppState.infiniteLaserCanvas.style.position = 'absolute';
+                AppState.infiniteLaserCanvas.style.top = '0';
+                AppState.infiniteLaserCanvas.style.left = '0';
+                AppState.infiniteLaserCanvas.style.pointerEvents = 'none';
+                AppState.infiniteLaserCanvas.style.zIndex = '100';
+                AppState.infiniteCanvas.parentElement.appendChild(AppState.infiniteLaserCanvas);
+                AppState.infiniteLaserCtx = AppState.infiniteLaserCanvas.getContext('2d');
+            }
+            
+            // Set laser styles on overlay canvas
+            AppState.infiniteLaserCtx.globalCompositeOperation = 'source-over';
+            AppState.infiniteLaserCtx.strokeStyle = AppState.currentColor + '80';
+            AppState.infiniteLaserCtx.lineWidth = AppState.brushSize * 0.8;
+            AppState.infiniteLaserCtx.shadowBlur = 10;
+            AppState.infiniteLaserCtx.shadowColor = AppState.currentColor;
+            AppState.infiniteLaserCtx.lineCap = 'round';
+            AppState.infiniteLaserCtx.lineJoin = 'round';
+            AppState.infiniteLaserCtx.beginPath();
+            AppState.infiniteLaserCtx.moveTo(pos.x, pos.y);
         }
     },
 
@@ -1457,6 +1669,17 @@ const InfiniteCanvas = {
         if (AppState.currentTool === 'pencil' || AppState.currentTool === 'eraser') {
             AppState.infiniteCtx.lineTo(pos.x, pos.y);
             AppState.infiniteCtx.stroke();
+        } else if (AppState.currentTool === 'laser') {
+            // For laser tool, add point to current stroke and draw on overlay
+            if (AppState.currentInfiniteLaserStroke) {
+                AppState.currentInfiniteLaserStroke.points.push({x: pos.x, y: pos.y});
+            }
+            
+            // Draw on laser overlay canvas
+            if (AppState.infiniteLaserCtx) {
+                AppState.infiniteLaserCtx.lineTo(pos.x, pos.y);
+                AppState.infiniteLaserCtx.stroke();
+            }
         }
     },
 
@@ -1471,8 +1694,21 @@ const InfiniteCanvas = {
         const pos = this.getMousePos(e);
         if (!pos) return;
 
+        // Handle laser stroke completion for infinite canvas
+        if (AppState.currentTool === 'laser' && AppState.currentInfiniteLaserStroke) {
+            // Add final point and trigger fade effect
+            AppState.currentInfiniteLaserStroke.points.push({x: pos.x, y: pos.y});
+            LaserUtils.addLaserStroke(AppState.currentInfiniteLaserStroke);
+            AppState.currentInfiniteLaserStroke = null;
+            
+            // Clear the laser overlay canvas immediately
+            if (AppState.infiniteLaserCtx) {
+                AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
+            }
+        }
+
         // Draw shapes for non-pencil tools
-        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser') {
+        if (AppState.currentTool !== 'pencil' && AppState.currentTool !== 'eraser' && AppState.currentTool !== 'laser') {
             this.updateStyles();
             
             switch (AppState.currentTool) {
@@ -1528,10 +1764,17 @@ const InfiniteCanvas = {
         if (AppState.currentTool === 'eraser') {
             AppState.infiniteCtx.globalCompositeOperation = 'destination-out';
             AppState.infiniteCtx.lineWidth = AppState.brushSize * 2;
+        } else if (AppState.currentTool === 'laser') {
+            AppState.infiniteCtx.globalCompositeOperation = 'source-over';
+            AppState.infiniteCtx.strokeStyle = AppState.currentColor + '80'; // 50% transparency
+            AppState.infiniteCtx.lineWidth = AppState.brushSize * 1.5;
+            AppState.infiniteCtx.shadowBlur = 10;
+            AppState.infiniteCtx.shadowColor = AppState.currentColor;
         } else {
             AppState.infiniteCtx.globalCompositeOperation = 'source-over';
             AppState.infiniteCtx.strokeStyle = AppState.currentColor;
             AppState.infiniteCtx.lineWidth = AppState.brushSize;
+            AppState.infiniteCtx.shadowBlur = 0;
         }
         
         AppState.infiniteCtx.lineCap = 'round';
@@ -2076,7 +2319,7 @@ function init() {
  */
 function setupEventListeners() {
     // Tool buttons
-    ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text'].forEach(tool => {
+    ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text', 'laser'].forEach(tool => {
         document.getElementById(tool).addEventListener('click', () => {
             AppState.currentTool = tool;
             
