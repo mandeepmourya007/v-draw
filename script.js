@@ -315,7 +315,7 @@ const DrawingUtils = {
         
         if (AppState.currentTool === 'eraser') {
             activeCtx.globalCompositeOperation = 'destination-out';
-            activeCtx.lineWidth = AppState.brushSize * 2;
+            activeCtx.lineWidth = 15;
         } else if (AppState.currentTool === 'laser') {
             activeCtx.globalCompositeOperation = 'source-over';
             activeCtx.strokeStyle = AppState.currentColor + '80'; // 50% transparency
@@ -1218,7 +1218,7 @@ const DrawingEvents = {
             const mainCtx = AppState.ctx;
             if (AppState.currentTool === 'eraser') {
                 mainCtx.globalCompositeOperation = 'destination-out';
-                mainCtx.lineWidth = AppState.brushSize * 2;
+                mainCtx.lineWidth = 15;
             } else {
                 mainCtx.globalCompositeOperation = 'source-over';
                 mainCtx.strokeStyle = AppState.currentColor;
@@ -2483,7 +2483,7 @@ const InfiniteCanvas = {
 
         if (AppState.currentTool === 'eraser') {
             AppState.infiniteCtx.globalCompositeOperation = 'destination-out';
-            AppState.infiniteCtx.lineWidth = AppState.brushSize * 2;
+            AppState.infiniteCtx.lineWidth = 15;
         } else if (AppState.currentTool === 'laser') {
             AppState.infiniteCtx.globalCompositeOperation = 'source-over';
             AppState.infiniteCtx.strokeStyle = AppState.currentColor + '80'; // 50% transparency
