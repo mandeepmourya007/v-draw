@@ -365,10 +365,12 @@ const DrawingUtils = {
      */
     toggleTextControls() {
         const textControls = document.getElementById('textControls');
-        if (AppState.currentTool === 'text') {
-            textControls.classList.remove('hidden');
-        } else {
-            textControls.classList.add('hidden');
+        if (textControls) {
+            if (AppState.currentTool === 'text') {
+                textControls.classList.remove('hidden');
+            } else {
+                textControls.classList.add('hidden');
+            }
         }
     }
 
