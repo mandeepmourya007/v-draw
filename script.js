@@ -1,79 +1,111 @@
+/**
+ * @fileoverview Tutorial Maker - A web application for creating tutorials with drawing capabilities
+ * 
+ * Main Features:
+ * - Draw on YouTube videos with timestamp management
+ * - Infinite canvas for additional notes and drawings
+ * - Multiple drawing tools (pencil, shapes, text, eraser)
+ * - PDF and image support
+ * - Auto-save functionality
+ * 
+ * @version 1.0.0
+ * @license MIT
+ */
+
 // =============================================================================
-// TUTORIAL MAKER - REFACTORED CODE
-// Draw on YouTube videos with timestamp management
+// TUTORIAL MAKER - MAIN APPLICATION
 // =============================================================================
 
 // =============================================================================
-// 1. GLOBAL STATE
+// 1. GLOBAL APPLICATION STATE
 // =============================================================================
+
+/**
+ * @namespace AppState
+ * @description Central state management for the application
+ * Tracks all the application state including UI, drawing tools, and media
+ */
 const AppState = {
-    // YouTube Integration
-    player: null,
-    apiReady: false,
+        // YouTube Player State
+    player: null,           // YouTube IFrame Player instance
+    apiReady: false,        // Flag indicating if YouTube API is loaded
     
-    // Canvas Management
-    canvas: null,
-    ctx: null,
-    overlayCanvas: null,
-    overlayCtx: null,
-    infiniteCanvas: null,
-    infiniteCtx: null,
+        // Canvas Elements and Contexts
+    canvas: null,           // Main canvas element for video annotations
+    ctx: null,              // 2D context for main canvas
+    overlayCanvas: null,    // Overlay canvas for temporary drawings
+    overlayCtx: null,       // 2D context for overlay canvas
+    infiniteCanvas: null,   // Infinite canvas element for free-form notes
+    infiniteCtx: null,      // 2D context for infinite canvas
     
-    // A4 Page Management
-    a4WidthPercent: 95, // A4 width as percentage of screen width
-    a4HeightPercent: 100, // A4 height as percentage of screen height
-    infiniteHorizontal: false, // Toggle for infinite horizontal expansion
+        // Page Layout Settings
+    a4WidthPercent: 95,     // A4 width as percentage of screen width
+    a4HeightPercent: 100,   // A4 height as percentage of screen height
+    infiniteHorizontal: false, // Toggle for infinite horizontal expansion mode
     
-    // Drawing State
-    isDrawing: false,
-    drawingMode: false,
-    infiniteDrawing: false,
-    currentTool: 'pencil',
-    currentColor: '#ff0000',
-    brushSize: 4,
+        // Drawing State
+    isDrawing: false,       // Flag indicating if user is currently drawing
+    drawingMode: false,     // Flag for drawing mode (video vs infinite canvas)
+    infiniteDrawing: false, // Flag for infinite canvas drawing state
+    currentTool: 'pencil',  // Currently selected drawing tool
+    currentColor: '#ff0000', // Current drawing color
+    brushSize: 4,           // Current brush size in pixels
     
-    // Text State
-    fontSize: 24,
-    fontFamily: 'Arial',
-    isTyping: false,
-    currentTextInput: null,
+        // Text Tool State
+    fontSize: 24,           // Current font size for text tool
+    fontFamily: 'Arial',    // Current font family for text tool
+    isTyping: false,        // Flag indicating if user is currently typing
+    currentTextInput: null, // Reference to active text input element
     
-    // Drawing Coordinates
-    startX: 0,
-    startY: 0,
+        // Drawing Coordinates
+    startX: 0,              // Starting X coordinate for current drawing
+    startY: 0,              // Starting Y coordinate for current drawing
     
-    // Timestamp Management
-    timestampedDrawings: [],
-    currentTimestamp: null,
-    currentDrawingState: null,
+        // Timestamp Management
+    timestampedDrawings: [], // Array of drawings with timestamps
+    currentTimestamp: null,  // Current video timestamp being viewed
+    currentDrawingState: null, // Current drawing state for undo/redo
     
-    // PDF Page Management
-    currentPDF: null,
-    currentPage: 1,
-    totalPages: 1,
-    lastUploadPosition: { x: 0, y: 0 }
+        // PDF Document State
+    currentPDF: null,       // PDF.js document instance
+    currentPage: 1,         // Currently displayed PDF page (1-based index)
+    totalPages: 1,          // Total number of pages in current PDF
+    lastUploadPosition: {   // Last position where content was uploaded
+        x: 0,               // X coordinate
+        y: 0                // Y coordinate
+    }
 };
 
 // =============================================================================
 // 2. CANVAS UTILITIES
 // =============================================================================
+
+/**
+ * @namespace CanvasUtils
+ * @description Utility functions for canvas manipulation and interaction
+ * Handles all canvas-related operations including drawing, resizing, and state management
+ */
 const CanvasUtils = {
     /**
-     * Get active canvas based on current mode
+     * Gets the currently active canvas based on the application state
+     * @returns {HTMLCanvasElement} The active canvas element (video or infinite canvas)
      */
     getActiveCanvas() {
         return AppState.drawingMode ? AppState.overlayCanvas : AppState.canvas;
     },
 
     /**
-     * Get active context based on current mode
+     * Gets the 2D rendering context for the active canvas
+     * @returns {CanvasRenderingContext2D} The 2D rendering context
      */
     getActiveContext() {
         return AppState.drawingMode ? AppState.overlayCtx : AppState.ctx;
     },
 
     /**
-     * Get mouse position relative to active canvas
+     * Calculates the mouse position relative to the active canvas
+     * @param {MouseEvent|TouchEvent} e - The mouse or touch event
+     * @returns {Object|null} Object with x and y coordinates, or null if invalid
      */
     getMousePos(e) {
         const activeCanvas = this.getActiveCanvas();
@@ -92,7 +124,8 @@ const CanvasUtils = {
     },
 
     /**
-     * Clear active canvas
+     * Clears the active canvas while preserving dimensions
+     * @returns {void}
      */
     clear() {
         const activeCtx = this.getActiveContext();
@@ -106,7 +139,9 @@ const CanvasUtils = {
     },
 
     /**
-     * Resize both canvases to match container
+     * Handles window resize events and adjusts canvas dimensions
+     * Maintains aspect ratio and redraws content when needed
+     * @returns {void}
      */
     resize() {
         const container = AppState.canvas.parentElement;
@@ -137,9 +172,17 @@ const CanvasUtils = {
 // =============================================================================
 // 3. DRAWING UTILITIES
 // =============================================================================
+
+/**
+ * @namespace DrawingUtils
+ * @description Handles all drawing-related functionality
+ * Manages different drawing tools, styles, and rendering
+ */
 const DrawingUtils = {
     /**
-     * Update drawing styles for active context
+     * Updates the drawing styles for the active context
+     * Applies current color, line width, and tool-specific styles
+     * @returns {void}
      */
     updateStyles() {
         const activeCtx = CanvasUtils.getActiveContext();
@@ -162,7 +205,9 @@ const DrawingUtils = {
     },
 
     /**
-     * Update cursor based on current tool
+     * Updates the cursor style based on the current tool
+     * Provides visual feedback for different drawing tools
+     * @returns {void}
      */
     updateCursor() {
         if (!AppState.drawingMode || !AppState.overlayCanvas) return;
@@ -181,7 +226,9 @@ const DrawingUtils = {
     },
 
     /**
-     * Show/hide text controls based on selected tool
+     * Toggles the visibility of text formatting controls
+     * Shows/hides based on whether text tool is selected
+     * @returns {void}
      */
     toggleTextControls() {
         const textControls = document.getElementById('textControls');
@@ -771,9 +818,17 @@ const DrawingEvents = {
 // =============================================================================
 // 9. YOUTUBE INTEGRATION
 // =============================================================================
+
+/**
+ * @namespace YouTubeManager
+ * @description Handles all YouTube video player functionality
+ * Manages video loading, playback control, and timestamp synchronization
+ */
 const YouTubeManager = {
     /**
-     * YouTube API ready callback
+     * Callback when YouTube API is loaded and ready
+     * Initializes the YouTube player with default settings
+     * @returns {void}
      */
     onAPIReady() {
         AppState.apiReady = true;
@@ -818,7 +873,9 @@ const YouTubeManager = {
     },
 
     /**
-     * Load video from URL
+     * Loads a YouTube video from the provided URL
+     * Validates URL, extracts video ID, and initializes player
+     * @returns {void}
      */
     loadVideo() {
         const url = document.getElementById('youtubeUrl').value.trim();
@@ -859,7 +916,9 @@ const YouTubeManager = {
     },
 
     /**
-     * Create YouTube player
+     * Creates and initializes a YouTube player instance
+     * @param {string} videoId - The YouTube video ID to load
+     * @returns {void}
      */
     createPlayer(videoId) {
         // Create a temporary div for the player
@@ -932,7 +991,9 @@ const YouTubeManager = {
     },
 
     /**
-     * Start time updater interval
+     * Starts the interval that updates the current video timestamp
+     * Enables timestamp-based drawing synchronization
+     * @returns {void}
      */
     startTimeUpdater() {
         // Clear any existing interval
@@ -965,7 +1026,10 @@ const YouTubeManager = {
     },
 
     /**
-     * Extract video ID from YouTube URL
+     * Extracts the YouTube video ID from various URL formats
+     * Supports multiple YouTube URL patterns (short, long, embed, etc.)
+     * @param {string} url - The YouTube URL to parse
+     * @returns {string|null} The extracted video ID or null if invalid
      */
     extractVideoId(url) {
         // Handle different YouTube URL formats including share parameters
@@ -1723,11 +1787,19 @@ const InfiniteCanvas = {
 // =============================================================================
 // 11. LOCAL STORAGE MANAGER
 // =============================================================================
+
+/**
+ * @namespace StorageManager
+ * @description Handles all data persistence functionality
+ * Manages saving and loading application state to/from localStorage
+ */
 const StorageManager = {
     STORAGE_KEY: 'tutorial_maker_data',
 
     /**
-     * Save all application data to localStorage
+     * Saves the current application state to localStorage
+     * Includes drawings, settings, and video state
+     * @returns {void}
      */
     saveData() {
         const data = {
@@ -1774,7 +1846,8 @@ const StorageManager = {
     },
 
     /**
-     * Load all application data from localStorage
+     * Loads saved application data from localStorage
+     * @returns {Object|null} The parsed data or null if none exists
      */
     loadData() {
         try {
@@ -1794,7 +1867,9 @@ const StorageManager = {
     },
 
     /**
-     * Restore application state from saved data
+     * Restores the application state from saved data
+     * @param {Object} data - The data object containing saved state
+     * @returns {void}
      */
     restoreData(data) {
         if (!data) return;
@@ -1946,6 +2021,12 @@ const StorageManager = {
 // =============================================================================
 // 12. INITIALIZATION
 // =============================================================================
+
+/**
+ * Initializes the Tutorial Maker application
+ * Sets up the UI, event listeners, and restores any saved state
+ * @returns {void}
+ */
 function init() {
     console.log('Initializing Tutorial Maker...');
     
@@ -1988,6 +2069,11 @@ function init() {
     console.log('Infinite Canvas:', AppState.infiniteCanvas);
 }
 
+/**
+ * Sets up all event listeners for the application
+ * Handles user interactions with tools, canvas, and UI elements
+ * @returns {void}
+ */
 function setupEventListeners() {
     // Tool buttons
     ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text'].forEach(tool => {
@@ -2168,7 +2254,12 @@ function setupEventListeners() {
     window.addEventListener('resize', CanvasUtils.resize);
 }
 
-// YouTube API callback
+/**
+ * Global callback function called by the YouTube IFrame API when ready
+ * This function name must match what the YouTube API expects
+ * @global
+ * @returns {void}
+ */
 function onYouTubeIframeAPIReady() {
     YouTubeManager.onAPIReady();
 }
