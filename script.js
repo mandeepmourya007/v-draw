@@ -45,7 +45,13 @@ const AppState = {
     // Timestamp Management
     timestampedDrawings: [],
     currentTimestamp: null,
-    currentDrawingState: null
+    currentDrawingState: null,
+    
+    // PDF Page Management
+    currentPDF: null,
+    currentPage: 1,
+    totalPages: 1,
+    lastUploadPosition: { x: 0, y: 0 }
 };
 
 // =============================================================================
@@ -1071,6 +1077,8 @@ const InfiniteCanvas = {
         document.getElementById('infiniteCanvasSave')?.addEventListener('click', () => this.save());
         document.getElementById('toggleHorizontal')?.addEventListener('click', () => this.toggleHorizontalExpansion());
         document.getElementById('uploadFile')?.addEventListener('click', () => this.triggerFileUpload());
+        document.getElementById('prevPage')?.addEventListener('click', () => this.previousPage());
+        document.getElementById('nextPage')?.addEventListener('click', () => this.nextPage());
     },
 
     /**
@@ -1120,11 +1128,17 @@ const InfiniteCanvas = {
                 const scrollTop = container.scrollTop;
                 const scrollLeft = container.scrollLeft;
                 
+                // Store position for potential page navigation
+                AppState.lastUploadPosition = { x: scrollLeft + 20, y: scrollTop + 20 };
+                
                 // Draw image at scroll position with original size
-                ctx.drawImage(img, scrollLeft + 20, scrollTop + 20);
+                ctx.drawImage(img, AppState.lastUploadPosition.x, AppState.lastUploadPosition.y);
                 
                 // Expand canvas if needed
-                this.expandCanvasIfNeeded(scrollLeft + img.width + 40, scrollTop + img.height + 40);
+                this.expandCanvasIfNeeded(AppState.lastUploadPosition.x + img.width + 20, AppState.lastUploadPosition.y + img.height + 20);
+                
+                // Hide page controls for single images
+                this.hidePageControls();
                 
                 UI.showNotification(`Image loaded: ${file.name}`);
                 
@@ -1151,8 +1165,50 @@ const InfiniteCanvas = {
                 const typedArray = new Uint8Array(e.target.result);
                 const pdf = await pdfjsLib.getDocument(typedArray).promise;
                 
-                // Get first page
-                const page = await pdf.getPage(1);
+                // Store PDF reference and page info
+                AppState.currentPDF = pdf;
+                AppState.totalPages = pdf.numPages;
+                
+                // Calculate starting position to place PDF
+                const container = document.getElementById('infiniteCanvasContainer');
+                const scrollTop = container.scrollTop;
+                const scrollLeft = container.scrollLeft;
+                AppState.lastUploadPosition = { x: scrollLeft + 20, y: scrollTop + 20 };
+                
+                // Render all pages vertically
+                await this.renderAllPDFPages();
+                
+                // Hide page controls since we show all pages
+                this.hidePageControls();
+                
+                UI.showNotification(`PDF loaded: ${file.name} (${pdf.numPages} pages)`);
+                
+                // Auto-save after loading
+                setTimeout(() => StorageManager.saveData(), 100);
+                
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                UI.showNotification('Failed to load PDF. Please try again.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    /**
+     * Render all PDF pages vertically
+     */
+    async renderAllPDFPages() {
+        if (!AppState.currentPDF) return;
+
+        try {
+            const ctx = AppState.infiniteCtx;
+            let currentY = AppState.lastUploadPosition.y;
+            const startX = AppState.lastUploadPosition.x;
+            let maxWidth = 0;
+            
+            // Render each page vertically
+            for (let pageNum = 1; pageNum <= AppState.totalPages; pageNum++) {
+                const page = await AppState.currentPDF.getPage(pageNum);
                 const viewport = page.getViewport({ scale: 1.5 });
                 
                 // Create temporary canvas for PDF rendering
@@ -1167,29 +1223,81 @@ const InfiniteCanvas = {
                     viewport: viewport
                 }).promise;
                 
-                // Draw the rendered PDF to infinite canvas
-                const ctx = AppState.infiniteCtx;
-                const container = document.getElementById('infiniteCanvasContainer');
-                const scrollTop = container.scrollTop;
-                const scrollLeft = container.scrollLeft;
+                // Draw page number label
+                ctx.fillStyle = '#666';
+                ctx.font = '14px Arial';
+                ctx.fillText(`Page ${pageNum}`, startX, currentY - 5);
                 
-                // Draw PDF at scroll position
-                ctx.drawImage(tempCanvas, scrollLeft + 20, scrollTop + 20);
+                // Draw PDF page at current position
+                ctx.drawImage(tempCanvas, startX, currentY);
                 
-                // Expand canvas if needed
-                this.expandCanvasIfNeeded(scrollLeft + viewport.width + 40, scrollTop + viewport.height + 40);
-                
-                UI.showNotification(`PDF loaded: ${file.name} (Page 1 of ${pdf.numPages})`);
-                
-                // Auto-save after loading
-                setTimeout(() => StorageManager.saveData(), 100);
-                
-            } catch (error) {
-                console.error('Error loading PDF:', error);
-                UI.showNotification('Failed to load PDF. Please try again.');
+                // Update position for next page (add some spacing)
+                currentY += viewport.height + 30;
+                maxWidth = Math.max(maxWidth, viewport.width);
             }
-        };
-        reader.readAsArrayBuffer(file);
+            
+            // Expand canvas to fit all pages
+            this.expandCanvasIfNeeded(
+                startX + maxWidth + 20,
+                currentY + 20
+            );
+            
+        } catch (error) {
+            console.error('Error rendering PDF pages:', error);
+            UI.showNotification('Failed to render PDF pages');
+        }
+    },
+
+    /**
+     * Navigate to previous page (deprecated - now shows all pages)
+     */
+    previousPage() {
+        // No longer needed since all pages are shown vertically
+        UI.showNotification('All PDF pages are displayed vertically. Scroll to navigate.');
+    },
+
+    /**
+     * Navigate to next page (deprecated - now shows all pages)
+     */
+    nextPage() {
+        // No longer needed since all pages are shown vertically
+        UI.showNotification('All PDF pages are displayed vertically. Scroll to navigate.');
+    },
+
+    /**
+     * Show page navigation controls
+     */
+    showPageControls() {
+        const controls = document.getElementById('pageControls');
+        if (controls) {
+            controls.style.display = 'flex';
+            this.updatePageInfo();
+        }
+    },
+
+    /**
+     * Hide page navigation controls
+     */
+    hidePageControls() {
+        const controls = document.getElementById('pageControls');
+        if (controls) {
+            controls.style.display = 'none';
+        }
+        
+        // Reset PDF state
+        AppState.currentPDF = null;
+        AppState.currentPage = 1;
+        AppState.totalPages = 1;
+    },
+
+    /**
+     * Update page info display
+     */
+    updatePageInfo() {
+        const pageInfo = document.getElementById('pageInfo');
+        if (pageInfo) {
+            pageInfo.textContent = `${AppState.currentPage}/${AppState.totalPages}`;
+        }
     },
 
     /**
