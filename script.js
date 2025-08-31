@@ -579,20 +579,21 @@ const DrawingEvents = {
     drawPreview(currentX, currentY) {
         if (!AppState.overlayCtx) return;
         
-        // Clear overlay canvas for preview, but first copy main canvas content to overlay
+        // Clear overlay canvas and copy main canvas content to show all previous drawings
         AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
         
-        // Copy main canvas content to overlay so pencil drawings remain visible
+        // Always copy main canvas content to overlay to show all persistent drawings
         if (AppState.ctx && AppState.canvas.width > 0 && AppState.canvas.height > 0) {
             AppState.overlayCtx.drawImage(AppState.canvas, 0, 0);
         }
         
-        // Set preview styles
+        // Set preview styles for the current shape being drawn
         AppState.overlayCtx.strokeStyle = AppState.currentColor;
         AppState.overlayCtx.lineWidth = AppState.brushSize;
         AppState.overlayCtx.lineCap = 'round';
         AppState.overlayCtx.lineJoin = 'round';
         AppState.overlayCtx.globalAlpha = 0.7; // Semi-transparent preview
+        AppState.overlayCtx.globalCompositeOperation = 'source-over';
         
         // Draw preview shape
         switch (AppState.currentTool) {
@@ -618,8 +619,9 @@ const DrawingEvents = {
                 break;
         }
         
-        // Reset alpha
+        // Reset alpha and composite operation
         AppState.overlayCtx.globalAlpha = 1.0;
+        AppState.overlayCtx.globalCompositeOperation = 'source-over';
     },
 
     /**
