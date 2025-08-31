@@ -638,7 +638,543 @@ const UI = {
 };
 
 // =============================================================================
-// 8. DRAWING EVENT HANDLERS
+// 8. MEDIA HANDLER - IMAGE/FILE MANIPULATION
+// =============================================================================
+
+/**
+ * @namespace MediaHandler
+ * @description Handles interactive manipulation of uploaded media (images, PDFs, videos)
+ */
+const MediaHandler = {
+    // State management
+    mediaObjects: [],           // Array of all uploaded media objects
+    selectedMedia: null,        // Currently selected media object
+    isDragging: false,         // Drag state
+    isResizing: false,         // Resize state
+    dragStartPos: null,        // Initial drag position
+    resizeStartPos: null,      // Initial resize position
+    resizeHandleSize: 12,      // Size of resize handles
+
+    /**
+     * Initialize media handler
+     */
+    init() {
+        this.setupEventListeners();
+        console.log('MediaHandler initialized');
+    },
+
+    /**
+     * Setup event listeners for media interaction
+     */
+    setupEventListeners() {
+        // Mouse events for desktop
+        document.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        
+        // Touch events for mobile
+        document.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        
+        // Prevent context menu on media objects
+        document.addEventListener('contextmenu', (e) => {
+            if (this.isMediaElement(e.target) || e.target.classList.contains('media-resize-handle')) {
+                e.preventDefault();
+            }
+        });
+    },
+
+    /**
+     * Add a new media object to the handler
+     * @param {Object} mediaData - Media object data
+     */
+    addMediaObject(mediaData) {
+        const mediaObj = {
+            id: 'media_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            type: mediaData.type || 'image',
+            x: mediaData.x || 0,
+            y: mediaData.y || 0,
+            width: mediaData.width || 200,
+            height: mediaData.height || 200,
+            originalWidth: mediaData.originalWidth || mediaData.width || 200,
+            originalHeight: mediaData.originalHeight || mediaData.height || 200,
+            src: mediaData.src,
+            element: mediaData.element,
+            canvas: mediaData.canvas || 'infinite', // 'infinite' or 'overlay'
+            aspectRatio: (mediaData.originalWidth || mediaData.width || 200) / (mediaData.originalHeight || mediaData.height || 200)
+        };
+
+        this.mediaObjects.push(mediaObj);
+        this.makeMediaInteractive(mediaObj);
+        return mediaObj;
+    },
+
+    /**
+     * Make a media object interactive
+     * @param {Object} mediaObj - Media object to make interactive
+     */
+    makeMediaInteractive(mediaObj) {
+        if (mediaObj.element) {
+            mediaObj.element.style.cursor = 'move';
+            mediaObj.element.style.userSelect = 'none';
+            mediaObj.element.setAttribute('data-media-id', mediaObj.id);
+        }
+    },
+
+    /**
+     * Check if element is a media element
+     * @param {Element} element - Element to check
+     * @returns {boolean}
+     */
+    isMediaElement(element) {
+        return element && element.hasAttribute && element.hasAttribute('data-media-id');
+    },
+
+    /**
+     * Get media object by element
+     * @param {Element} element - Element to find media object for
+     * @returns {Object|null}
+     */
+    getMediaByElement(element) {
+        if (!this.isMediaElement(element)) return null;
+        const mediaId = element.getAttribute('data-media-id');
+        return this.mediaObjects.find(obj => obj.id === mediaId);
+    },
+
+    /**
+     * Handle mouse down events
+     * @param {MouseEvent} e - Mouse event
+     */
+    handleMouseDown(e) {
+        // Skip if drawing tool is active (only work with select tool)
+        if (AppState.currentTool !== 'select') return;
+
+        // Check if clicking on resize handle first
+        if (e.target.classList.contains('media-resize-handle')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (this.selectedMedia) {
+                this.startResize(e, this.selectedMedia);
+            }
+            return;
+        }
+
+        const mediaObj = this.getMediaByElement(e.target);
+        if (!mediaObj) {
+            this.deselectAll();
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        this.selectMedia(mediaObj);
+        this.startDrag(e, mediaObj);
+    },
+
+    /**
+     * Handle mouse move events
+     * @param {MouseEvent} e - Mouse event
+     */
+    handleMouseMove(e) {
+        if (this.isDragging && this.selectedMedia) {
+            this.updateDrag(e);
+        } else if (this.isResizing && this.selectedMedia) {
+            this.updateResize(e);
+        }
+    },
+
+    /**
+     * Handle mouse up events
+     * @param {MouseEvent} e - Mouse event
+     */
+    handleMouseUp(e) {
+        if (this.isDragging) {
+            this.endDrag();
+        } else if (this.isResizing) {
+            this.endResize();
+        }
+    },
+
+    /**
+     * Handle touch start events
+     * @param {TouchEvent} e - Touch event
+     */
+    handleTouchStart(e) {
+        if (e.touches.length === 1) {
+            // Single touch - treat as mouse down
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                target: e.target
+            });
+            this.handleMouseDown(mouseEvent);
+        } else if (e.touches.length === 2) {
+            // Two finger pinch - start resize
+            const mediaObj = this.getMediaByElement(e.target);
+            if (mediaObj) {
+                this.startPinchResize(e, mediaObj);
+            }
+        }
+    },
+
+    /**
+     * Handle touch move events
+     * @param {TouchEvent} e - Touch event
+     */
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 1 && this.isDragging) {
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.handleMouseMove(mouseEvent);
+        } else if (e.touches.length === 2 && this.isResizing) {
+            this.updatePinchResize(e);
+        }
+    },
+
+    /**
+     * Handle touch end events
+     * @param {TouchEvent} e - Touch event
+     */
+    handleTouchEnd(e) {
+        if (e.touches.length === 0) {
+            this.handleMouseUp(e);
+        }
+    },
+
+    /**
+     * Select a media object
+     * @param {Object} mediaObj - Media object to select
+     */
+    selectMedia(mediaObj) {
+        this.deselectAll();
+        this.selectedMedia = mediaObj;
+        this.showResizeHandles(mediaObj);
+    },
+
+    /**
+     * Deselect all media objects
+     */
+    deselectAll() {
+        this.selectedMedia = null;
+        this.hideAllResizeHandles();
+    },
+
+    /**
+     * Show resize handles for media object
+     * @param {Object} mediaObj - Media object to show handles for
+     */
+    showResizeHandles(mediaObj) {
+        if (!mediaObj.element) return;
+
+        // Remove existing handles
+        this.hideAllResizeHandles();
+
+        // Create resize handles
+        const handles = ['nw', 'ne', 'sw', 'se'];
+        handles.forEach(position => {
+            const handle = document.createElement('div');
+            handle.className = 'media-resize-handle';
+            handle.setAttribute('data-position', position);
+            handle.style.cssText = `
+                position: absolute;
+                width: ${this.resizeHandleSize}px;
+                height: ${this.resizeHandleSize}px;
+                background: #007bff;
+                border: 2px solid white;
+                border-radius: 50%;
+                cursor: ${position}-resize;
+                z-index: 1000;
+                pointer-events: auto;
+            `;
+            
+            // Position handle
+            this.positionResizeHandle(handle, position, mediaObj);
+            document.body.appendChild(handle);
+            
+            // Add event listeners to resize handles
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.startResize(e, mediaObj);
+            });
+        });
+    },
+
+    /**
+     * Position a resize handle
+     * @param {Element} handle - Handle element
+     * @param {string} position - Handle position (nw, ne, sw, se)
+     * @param {Object} mediaObj - Media object
+     */
+    positionResizeHandle(handle, position, mediaObj) {
+        const rect = mediaObj.element.getBoundingClientRect();
+        const offset = this.resizeHandleSize / 2;
+
+        switch (position) {
+            case 'nw':
+                handle.style.left = (rect.left - offset) + 'px';
+                handle.style.top = (rect.top - offset) + 'px';
+                break;
+            case 'ne':
+                handle.style.left = (rect.right - offset) + 'px';
+                handle.style.top = (rect.top - offset) + 'px';
+                break;
+            case 'sw':
+                handle.style.left = (rect.left - offset) + 'px';
+                handle.style.top = (rect.bottom - offset) + 'px';
+                break;
+            case 'se':
+                handle.style.left = (rect.right - offset) + 'px';
+                handle.style.top = (rect.bottom - offset) + 'px';
+                break;
+        }
+    },
+
+    /**
+     * Hide all resize handles
+     */
+    hideAllResizeHandles() {
+        const handles = document.querySelectorAll('.media-resize-handle');
+        handles.forEach(handle => handle.remove());
+    },
+
+    /**
+     * Check if point is on resize handle
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {number} width - Element width
+     * @param {number} height - Element height
+     * @returns {boolean}
+     */
+    isOnResizeHandle(x, y, width, height) {
+        const handleSize = this.resizeHandleSize;
+        const corners = [
+            { x: 0, y: 0 }, // nw
+            { x: width, y: 0 }, // ne
+            { x: 0, y: height }, // sw
+            { x: width, y: height } // se
+        ];
+
+        return corners.some(corner => {
+            return Math.abs(x - corner.x) <= handleSize && Math.abs(y - corner.y) <= handleSize;
+        });
+    },
+
+    /**
+     * Start dragging
+     * @param {MouseEvent} e - Mouse event
+     * @param {Object} mediaObj - Media object to drag
+     */
+    startDrag(e, mediaObj) {
+        this.isDragging = true;
+        this.dragStartPos = { x: e.clientX, y: e.clientY };
+        mediaObj.element.style.cursor = 'grabbing';
+    },
+
+    /**
+     * Update drag position
+     * @param {MouseEvent} e - Mouse event
+     */
+    updateDrag(e) {
+        if (!this.selectedMedia || !this.dragStartPos) return;
+
+        const deltaX = e.clientX - this.dragStartPos.x;
+        const deltaY = e.clientY - this.dragStartPos.y;
+
+        const newX = this.selectedMedia.x + deltaX;
+        const newY = this.selectedMedia.y + deltaY;
+
+        this.updateMediaPosition(this.selectedMedia, newX, newY);
+        this.dragStartPos = { x: e.clientX, y: e.clientY };
+    },
+
+    /**
+     * End dragging
+     */
+    endDrag() {
+        if (this.selectedMedia) {
+            this.selectedMedia.element.style.cursor = 'move';
+        }
+        this.isDragging = false;
+        this.dragStartPos = null;
+    },
+
+    /**
+     * Start resizing
+     * @param {MouseEvent} e - Mouse event
+     * @param {Object} mediaObj - Media object to resize
+     */
+    startResize(e, mediaObj) {
+        this.isResizing = true;
+        this.resizeStartPos = { x: e.clientX, y: e.clientY };
+        this.resizeStartSize = { width: mediaObj.width, height: mediaObj.height };
+    },
+
+    /**
+     * Update resize
+     * @param {MouseEvent} e - Mouse event
+     */
+    updateResize(e) {
+        if (!this.selectedMedia || !this.resizeStartPos) return;
+
+        const deltaX = e.clientX - this.resizeStartPos.x;
+        const deltaY = e.clientY - this.resizeStartPos.y;
+
+        // Calculate new size maintaining aspect ratio
+        const scaleFactor = 1 + (deltaX + deltaY) / 200;
+        const newWidth = Math.max(50, this.resizeStartSize.width * scaleFactor);
+        const newHeight = newWidth / this.selectedMedia.aspectRatio;
+
+        this.updateMediaSize(this.selectedMedia, newWidth, newHeight);
+        
+        // Update resize handles position during resize
+        this.showResizeHandles(this.selectedMedia);
+    },
+
+    /**
+     * End resizing
+     */
+    endResize() {
+        this.isResizing = false;
+        this.resizeStartPos = null;
+        this.resizeStartSize = null;
+    },
+
+    /**
+     * Start pinch resize for touch devices
+     * @param {TouchEvent} e - Touch event
+     * @param {Object} mediaObj - Media object to resize
+     */
+    startPinchResize(e, mediaObj) {
+        this.isResizing = true;
+        this.selectMedia(mediaObj);
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        this.initialPinchDistance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) + 
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        this.initialSize = { width: mediaObj.width, height: mediaObj.height };
+    },
+
+    /**
+     * Update pinch resize
+     * @param {TouchEvent} e - Touch event
+     */
+    updatePinchResize(e) {
+        if (!this.selectedMedia || !this.initialPinchDistance) return;
+
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const currentDistance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) + 
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+
+        const scaleFactor = currentDistance / this.initialPinchDistance;
+        const newWidth = Math.max(50, this.initialSize.width * scaleFactor);
+        const newHeight = newWidth / this.selectedMedia.aspectRatio;
+
+        this.updateMediaSize(this.selectedMedia, newWidth, newHeight);
+    },
+
+    /**
+     * Update media object position
+     * @param {Object} mediaObj - Media object to update
+     * @param {number} x - New X position
+     * @param {number} y - New Y position
+     */
+    updateMediaPosition(mediaObj, x, y) {
+        mediaObj.x = x;
+        mediaObj.y = y;
+
+        if (mediaObj.element) {
+            mediaObj.element.style.left = x + 'px';
+            mediaObj.element.style.top = y + 'px';
+        }
+
+        // Update resize handles if selected
+        if (this.selectedMedia === mediaObj) {
+            this.showResizeHandles(mediaObj);
+        }
+    },
+
+    /**
+     * Update media object size
+     * @param {Object} mediaObj - Media object to update
+     * @param {number} width - New width
+     * @param {number} height - New height
+     */
+    updateMediaSize(mediaObj, width, height) {
+        mediaObj.width = width;
+        mediaObj.height = height;
+
+        if (mediaObj.element) {
+            mediaObj.element.style.width = width + 'px';
+            mediaObj.element.style.height = height + 'px';
+        }
+
+        // Update resize handles if selected
+        if (this.selectedMedia === mediaObj) {
+            this.showResizeHandles(mediaObj);
+        }
+    },
+
+    /**
+     * Remove a media object
+     * @param {string} mediaId - ID of media object to remove
+     */
+    removeMedia(mediaId) {
+        const index = this.mediaObjects.findIndex(obj => obj.id === mediaId);
+        if (index !== -1) {
+            const mediaObj = this.mediaObjects[index];
+            
+            if (mediaObj.element) {
+                mediaObj.element.remove();
+            }
+            
+            if (this.selectedMedia === mediaObj) {
+                this.deselectAll();
+            }
+            
+            this.mediaObjects.splice(index, 1);
+        }
+    },
+
+    /**
+     * Get all media objects
+     * @returns {Array} Array of media objects
+     */
+    getAllMedia() {
+        return [...this.mediaObjects];
+    },
+
+    /**
+     * Clear all media objects
+     */
+    clearAll() {
+        this.mediaObjects.forEach(mediaObj => {
+            if (mediaObj.element) {
+                mediaObj.element.remove();
+            }
+        });
+        this.mediaObjects = [];
+        this.deselectAll();
+    }
+};
+
+// =============================================================================
+// 9. DRAWING EVENT HANDLERS
 // =============================================================================
 const DrawingEvents = {
     /**
@@ -1364,8 +1900,6 @@ const InfiniteCanvas = {
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                const ctx = AppState.infiniteCtx;
-                
                 // Calculate position to place image (top-left of current view)
                 const container = document.getElementById('infiniteCanvasContainer');
                 const scrollTop = container.scrollTop;
@@ -1374,8 +1908,36 @@ const InfiniteCanvas = {
                 // Store position for potential page navigation
                 AppState.lastUploadPosition = { x: scrollLeft + 20, y: scrollTop + 20 };
                 
-                // Draw image at scroll position with original size
-                ctx.drawImage(img, AppState.lastUploadPosition.x, AppState.lastUploadPosition.y);
+                // Create interactive image element instead of drawing on canvas
+                const imgElement = document.createElement('img');
+                imgElement.src = e.target.result;
+                imgElement.style.cssText = `
+                    position: absolute;
+                    left: ${AppState.lastUploadPosition.x}px;
+                    top: ${AppState.lastUploadPosition.y}px;
+                    width: ${img.width}px;
+                    height: ${img.height}px;
+                    z-index: 50;
+                    user-select: none;
+                    pointer-events: auto;
+                `;
+                
+                // Add to canvas container
+                container.appendChild(imgElement);
+                
+                // Register with MediaHandler for interaction
+                const mediaObj = MediaHandler.addMediaObject({
+                    type: 'image',
+                    x: AppState.lastUploadPosition.x,
+                    y: AppState.lastUploadPosition.y,
+                    width: img.width,
+                    height: img.height,
+                    originalWidth: img.width,
+                    originalHeight: img.height,
+                    src: e.target.result,
+                    element: imgElement,
+                    canvas: 'infinite'
+                });
                 
                 // Expand canvas if needed
                 this.expandCanvasIfNeeded(AppState.lastUploadPosition.x + img.width + 20, AppState.lastUploadPosition.y + img.height + 20);
@@ -1383,7 +1945,7 @@ const InfiniteCanvas = {
                 // Hide page controls for single images
                 this.hidePageControls();
                 
-                UI.showNotification(`Image loaded: ${file.name}`);
+                UI.showNotification(`Image loaded: ${file.name} - Use Select tool (👆) to move/resize`);
                 
                 // Auto-save after loading
                 setTimeout(() => StorageManager.saveData(), 100);
@@ -2294,6 +2856,9 @@ function init() {
     // Initialize infinite canvas
     InfiniteCanvas.init();
     
+    // Initialize media handler
+    MediaHandler.init();
+    
     // Initialize drawing styles and set default tool
     const pencilBtn = document.getElementById('pencil');
     if (pencilBtn) {
@@ -2323,7 +2888,8 @@ function init() {
  */
 function setupEventListeners() {
     // Tool buttons
-    ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text', 'laser'].forEach(tool => {
+    const toolButtons = ['pencil', 'line', 'rectangle', 'circle', 'arrow', 'eraser', 'text', 'select', 'laser'];
+    toolButtons.forEach(tool => {
         document.getElementById(tool).addEventListener('click', () => {
             AppState.currentTool = tool;
             
