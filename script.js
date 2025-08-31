@@ -322,6 +322,9 @@ const TimestampManager = {
         AppState.currentDrawingState = null;
         
         this.updateUI();
+        
+        // Auto-save after saving timestamp
+        StorageManager.saveData();
     },
 
     /**
@@ -385,6 +388,9 @@ const TimestampManager = {
         AppState.timestampedDrawings = AppState.timestampedDrawings.filter(d => d.id !== id);
         this.updateUI();
         UI.showNotification('Drawing deleted!');
+        
+        // Auto-save after deleting timestamp
+        StorageManager.saveData();
     },
 
     /**
@@ -570,6 +576,9 @@ const DrawingEvents = {
                     mainCtx.stroke();
                     break;
             }
+            
+            // Auto-save after drawing completion
+            setTimeout(() => StorageManager.saveData(), 100);
         }
     },
 
@@ -1209,6 +1218,9 @@ const InfiniteCanvas = {
                     AppState.infiniteCtx.stroke();
                     break;
             }
+            
+            // Auto-save after infinite canvas drawing completion
+            setTimeout(() => StorageManager.saveData(), 100);
         }
         
         // Redraw page separators to keep them visible
@@ -1481,7 +1493,230 @@ const InfiniteCanvas = {
 };
 
 // =============================================================================
-// 11. INITIALIZATION
+// 11. LOCAL STORAGE MANAGER
+// =============================================================================
+const StorageManager = {
+    STORAGE_KEY: 'tutorial_maker_data',
+
+    /**
+     * Save all application data to localStorage
+     */
+    saveData() {
+        const data = {
+            // Video information
+            videoUrl: document.getElementById('youtubeUrl')?.value || '',
+            
+            // Timestamped drawings
+            timestampedDrawings: AppState.timestampedDrawings,
+            
+            // Main canvas drawing (if any)
+            mainCanvasData: AppState.canvas ? AppState.canvas.toDataURL() : null,
+            
+            // Infinite canvas drawing (if any)
+            infiniteCanvasData: AppState.infiniteCanvas ? AppState.infiniteCanvas.toDataURL() : null,
+            
+            // Current settings
+            currentColor: AppState.currentColor,
+            brushSize: AppState.brushSize,
+            fontSize: AppState.fontSize,
+            fontFamily: AppState.fontFamily,
+            
+            // Canvas dimensions for infinite canvas
+            infiniteCanvasWidth: AppState.infiniteCanvas?.width || 0,
+            infiniteCanvasHeight: AppState.infiniteCanvas?.height || 0,
+            
+            // Infinite canvas settings
+            infiniteHorizontal: AppState.infiniteHorizontal,
+            a4WidthPercent: AppState.a4WidthPercent,
+            a4HeightPercent: AppState.a4HeightPercent,
+            
+            // Save timestamp
+            lastSaved: new Date().toISOString()
+        };
+
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+            console.log('Data saved to localStorage');
+            return true;
+        } catch (error) {
+            console.error('Failed to save data to localStorage:', error);
+            UI.showNotification('Failed to save data - storage may be full');
+            return false;
+        }
+    },
+
+    /**
+     * Load all application data from localStorage
+     */
+    loadData() {
+        try {
+            const dataStr = localStorage.getItem(this.STORAGE_KEY);
+            if (!dataStr) {
+                console.log('No saved data found');
+                return null;
+            }
+
+            const data = JSON.parse(dataStr);
+            console.log('Loaded data from localStorage:', data);
+            return data;
+        } catch (error) {
+            console.error('Failed to load data from localStorage:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Restore application state from saved data
+     */
+    restoreData(data) {
+        if (!data) return;
+
+        // Restore video URL
+        if (data.videoUrl) {
+            const urlInput = document.getElementById('youtubeUrl');
+            if (urlInput) {
+                urlInput.value = data.videoUrl;
+                // Auto-load the video
+                setTimeout(() => YouTubeManager.loadVideo(), 1000);
+            }
+        }
+
+        // Restore timestamped drawings
+        if (data.timestampedDrawings && Array.isArray(data.timestampedDrawings)) {
+            AppState.timestampedDrawings = data.timestampedDrawings;
+            TimestampManager.updateUI();
+        }
+
+        // Restore settings
+        if (data.currentColor) {
+            AppState.currentColor = data.currentColor;
+            const colorPicker = document.getElementById('colorPicker');
+            if (colorPicker) colorPicker.value = data.currentColor;
+        }
+
+        if (data.brushSize) {
+            AppState.brushSize = data.brushSize;
+            const brushSizeInput = document.getElementById('brushSize');
+            const sizeValue = document.getElementById('sizeValue');
+            if (brushSizeInput) brushSizeInput.value = data.brushSize;
+            if (sizeValue) sizeValue.textContent = data.brushSize + 'px';
+        }
+
+        if (data.fontSize) {
+            AppState.fontSize = data.fontSize;
+            const fontSizeInput = document.getElementById('fontSize');
+            if (fontSizeInput) fontSizeInput.value = data.fontSize;
+        }
+
+        if (data.fontFamily) {
+            AppState.fontFamily = data.fontFamily;
+            const fontFamilySelect = document.getElementById('fontFamily');
+            if (fontFamilySelect) fontFamilySelect.value = data.fontFamily;
+        }
+
+        // Restore infinite canvas settings
+        if (typeof data.infiniteHorizontal === 'boolean') {
+            AppState.infiniteHorizontal = data.infiniteHorizontal;
+            const button = document.getElementById('toggleHorizontal');
+            if (button) {
+                if (data.infiniteHorizontal) {
+                    button.textContent = '↔️ Horizontal On';
+                    button.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                    button.classList.add('bg-green-500', 'hover:bg-green-600');
+                } else {
+                    button.textContent = '↔️ Horizontal Off';
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-gray-500', 'hover:bg-gray-600');
+                }
+            }
+        }
+
+        if (data.a4WidthPercent) AppState.a4WidthPercent = data.a4WidthPercent;
+        if (data.a4HeightPercent) AppState.a4HeightPercent = data.a4HeightPercent;
+
+        // Restore canvas drawings
+        setTimeout(() => {
+            this.restoreCanvasDrawings(data);
+        }, 500);
+
+        UI.showNotification(`Data restored from ${new Date(data.lastSaved).toLocaleString()}`);
+    },
+
+    /**
+     * Restore canvas drawings from saved data
+     */
+    restoreCanvasDrawings(data) {
+        // Restore main canvas
+        if (data.mainCanvasData && AppState.canvas && AppState.ctx) {
+            const img = new Image();
+            img.onload = () => {
+                AppState.ctx.clearRect(0, 0, AppState.canvas.width, AppState.canvas.height);
+                AppState.ctx.drawImage(img, 0, 0);
+                console.log('Main canvas restored');
+            };
+            img.src = data.mainCanvasData;
+        }
+
+        // Restore infinite canvas
+        if (data.infiniteCanvasData && AppState.infiniteCanvas && AppState.infiniteCtx) {
+            // Restore canvas dimensions first
+            if (data.infiniteCanvasWidth && data.infiniteCanvasHeight) {
+                AppState.infiniteCanvas.width = data.infiniteCanvasWidth;
+                AppState.infiniteCanvas.height = data.infiniteCanvasHeight;
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                AppState.infiniteCtx.clearRect(0, 0, AppState.infiniteCanvas.width, AppState.infiniteCanvas.height);
+                AppState.infiniteCtx.drawImage(img, 0, 0);
+                // Redraw page separators on top
+                InfiniteCanvas.drawPageSeparators();
+                console.log('Infinite canvas restored');
+            };
+            img.src = data.infiniteCanvasData;
+        }
+    },
+
+    /**
+     * Clear all saved data
+     */
+    clearData() {
+        try {
+            localStorage.removeItem(this.STORAGE_KEY);
+            console.log('Saved data cleared');
+            UI.showNotification('All saved data cleared');
+            return true;
+        } catch (error) {
+            console.error('Failed to clear saved data:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Auto-save data periodically
+     */
+    startAutoSave() {
+        // Save every 30 seconds
+        setInterval(() => {
+            this.saveData();
+        }, 30000);
+
+        // Save on page unload
+        window.addEventListener('beforeunload', () => {
+            this.saveData();
+        });
+
+        // Save on visibility change (when tab becomes hidden)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.saveData();
+            }
+        });
+    }
+};
+
+// =============================================================================
+// 12. INITIALIZATION
 // =============================================================================
 function init() {
     console.log('Initializing Tutorial Maker...');
@@ -1509,6 +1744,15 @@ function init() {
         pencilBtn.classList.add('bg-indigo-500', 'border-indigo-600', 'text-white');
     }
     DrawingUtils.updateStyles();
+    
+    // Initialize storage and load saved data
+    const savedData = StorageManager.loadData();
+    if (savedData) {
+        StorageManager.restoreData(savedData);
+    }
+    
+    // Start auto-save
+    StorageManager.startAutoSave();
     
     console.log('Tutorial Maker initialized successfully');
     console.log('Canvas:', AppState.canvas);
@@ -1621,6 +1865,21 @@ function setupEventListeners() {
     
     // Retry button for video loading errors
     document.getElementById('retryButton').addEventListener('click', () => YouTubeManager.loadVideo());
+    
+    // Storage action buttons
+    document.getElementById('manualSave')?.addEventListener('click', () => {
+        if (StorageManager.saveData()) {
+            UI.showNotification('All data saved successfully!');
+        }
+    });
+    
+    document.getElementById('clearStorage')?.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all saved data? This cannot be undone.')) {
+            StorageManager.clearData();
+            // Refresh the page to reset everything
+            setTimeout(() => location.reload(), 1000);
+        }
+    });
     
     // Window events
     window.addEventListener('resize', CanvasUtils.resize);
