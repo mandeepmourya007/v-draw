@@ -151,7 +151,7 @@ const LaserUtils = {
      */
     redrawWithLaserFade() {
         // Clear overlay canvas and redraw all active laser strokes with current opacity
-        if (AppState.overlayCtx) {
+        if (AppState.overlayCtx && !AppState.isDrawing) {
             AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
             
             AppState.laserStrokes.forEach(stroke => {
@@ -162,7 +162,7 @@ const LaserUtils = {
         }
         
         // For infinite canvas - draw fading strokes on laser overlay
-        if (AppState.infiniteLaserCtx && AppState.laserStrokes.some(s => s.canvas === 'infinite' && s.opacity > 0)) {
+        if (AppState.infiniteLaserCtx && !AppState.infiniteDrawing && AppState.laserStrokes.some(s => s.canvas === 'infinite' && s.opacity > 0)) {
             // Clear laser overlay and redraw fading strokes
             AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
             
@@ -686,8 +686,9 @@ const DrawingEvents = {
                 canvas: AppState.drawingMode ? 'overlay' : 'main'
             };
             
-            // Draw laser on overlay canvas for temporary effect
+            // Clear overlay and set up for laser drawing
             const overlayCtx = AppState.overlayCtx;
+            overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
             overlayCtx.globalCompositeOperation = 'source-over';
             overlayCtx.strokeStyle = AppState.currentColor + '80';
             overlayCtx.lineWidth = AppState.brushSize * 1.5;
@@ -1644,7 +1645,8 @@ const InfiniteCanvas = {
                 AppState.infiniteLaserCtx = AppState.infiniteLaserCanvas.getContext('2d');
             }
             
-            // Set laser styles on overlay canvas
+            // Clear overlay and set laser styles
+            AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
             AppState.infiniteLaserCtx.globalCompositeOperation = 'source-over';
             AppState.infiniteLaserCtx.strokeStyle = AppState.currentColor + '80';
             AppState.infiniteLaserCtx.lineWidth = AppState.brushSize * 0.8;
@@ -1704,6 +1706,8 @@ const InfiniteCanvas = {
             // Clear the laser overlay canvas immediately
             if (AppState.infiniteLaserCtx) {
                 AppState.infiniteLaserCtx.clearRect(0, 0, AppState.infiniteLaserCanvas.width, AppState.infiniteLaserCanvas.height);
+                // Reset canvas state to prevent drawing continuation
+                AppState.infiniteLaserCtx.beginPath();
             }
         }
 
