@@ -1280,7 +1280,7 @@ const DrawingEvents = {
             overlayCtx.stroke();
         } else {
             // Show preview for shape tools
-            this.drawPreview(pos.x, pos.y);
+            DrawingEvents.drawPreview(pos.x, pos.y);
         }
     },
 
@@ -1368,10 +1368,17 @@ const DrawingEvents = {
     },
 
     /**
-     * Draw preview for shape tools
+     * Draw preview for shape tools with throttling for better performance
      */
     drawPreview(currentX, currentY) {
         if (!AppState.overlayCtx) return;
+        
+        // Throttle preview updates for better performance
+        const now = Date.now();
+        if (AppState.lastPreviewTime && now - AppState.lastPreviewTime < 16) { // ~60fps
+            return;
+        }
+        AppState.lastPreviewTime = now;
         
         // Clear overlay canvas and copy main canvas content to show all previous drawings
         AppState.overlayCtx.clearRect(0, 0, AppState.overlayCanvas.width, AppState.overlayCanvas.height);
@@ -1386,7 +1393,7 @@ const DrawingEvents = {
         AppState.overlayCtx.lineWidth = AppState.brushSize;
         AppState.overlayCtx.lineCap = 'round';
         AppState.overlayCtx.lineJoin = 'round';
-        AppState.overlayCtx.globalAlpha = 0.7; // Semi-transparent preview
+        AppState.overlayCtx.globalAlpha = 0.8; // More visible preview
         AppState.overlayCtx.globalCompositeOperation = 'source-over';
         
         // Draw preview shape
@@ -2307,7 +2314,88 @@ const InfiniteCanvas = {
                 AppState.infiniteLaserCtx.lineTo(pos.x, pos.y);
                 AppState.infiniteLaserCtx.stroke();
             }
+        } else {
+            // Show preview for shape tools on infinite canvas
+            this.drawInfinitePreview(pos.x, pos.y);
         }
+    },
+
+    /**
+     * Draw preview for shape tools directly on infinite canvas with temporary drawing
+     */
+    drawInfinitePreview(currentX, currentY) {
+        if (!AppState.infiniteCtx) return;
+        
+        // Clear previous preview if it exists
+        this.clearInfinitePreview();
+        
+        // Store current canvas state before drawing preview
+        AppState.infinitePreviewImageData = AppState.infiniteCtx.getImageData(0, 0, AppState.infiniteCanvas.width, AppState.infiniteCanvas.height);
+        
+        // Set preview styles
+        AppState.infiniteCtx.strokeStyle = AppState.currentColor;
+        AppState.infiniteCtx.lineWidth = AppState.brushSize;
+        AppState.infiniteCtx.lineCap = 'round';
+        AppState.infiniteCtx.lineJoin = 'round';
+        AppState.infiniteCtx.globalAlpha = 0.7; // Semi-transparent preview
+        AppState.infiniteCtx.globalCompositeOperation = 'source-over';
+        
+        // Draw preview shape
+        switch (AppState.currentTool) {
+            case 'line':
+                AppState.infiniteCtx.beginPath();
+                AppState.infiniteCtx.moveTo(AppState.startX, AppState.startY);
+                AppState.infiniteCtx.lineTo(currentX, currentY);
+                AppState.infiniteCtx.stroke();
+                break;
+            case 'rectangle':
+                const width = currentX - AppState.startX;
+                const height = currentY - AppState.startY;
+                AppState.infiniteCtx.strokeRect(AppState.startX, AppState.startY, width, height);
+                break;
+            case 'circle':
+                const radius = Math.sqrt(Math.pow(currentX - AppState.startX, 2) + Math.pow(currentY - AppState.startY, 2));
+                AppState.infiniteCtx.beginPath();
+                AppState.infiniteCtx.arc(AppState.startX, AppState.startY, radius, 0, 2 * Math.PI);
+                AppState.infiniteCtx.stroke();
+                break;
+            case 'arrow':
+                this.drawInfiniteArrowPreview(AppState.startX, AppState.startY, currentX, currentY);
+                break;
+        }
+        
+        // Reset alpha and composite operation
+        AppState.infiniteCtx.globalAlpha = 1.0;
+        AppState.infiniteCtx.globalCompositeOperation = 'source-over';
+    },
+
+    /**
+     * Clear infinite canvas preview and restore original state
+     */
+    clearInfinitePreview() {
+        if (AppState.infinitePreviewImageData && AppState.infiniteCtx) {
+            AppState.infiniteCtx.putImageData(AppState.infinitePreviewImageData, 0, 0);
+            AppState.infinitePreviewImageData = null;
+        }
+    },
+
+    /**
+     * Draw arrow preview on infinite canvas
+     */
+    drawInfiniteArrowPreview(startX, startY, endX, endY) {
+        const headLength = 20;
+        const angle = Math.atan2(endY - startY, endX - startX);
+        
+        AppState.infiniteCtx.beginPath();
+        AppState.infiniteCtx.moveTo(startX, startY);
+        AppState.infiniteCtx.lineTo(endX, endY);
+        
+        // Draw arrowhead
+        AppState.infiniteCtx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+        AppState.infiniteCtx.moveTo(endX, endY);
+        AppState.infiniteCtx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+        
+        AppState.infiniteCtx.stroke();
     },
 
     /**
@@ -2315,6 +2403,9 @@ const InfiniteCanvas = {
      */
     stopDrawing(e) {
         if (!AppState.infiniteDrawing) return;
+        
+        // Clear any preview before finalizing the shape
+        this.clearInfinitePreview();
         
         AppState.infiniteDrawing = false;
         
